@@ -1,5 +1,8 @@
 module PhDSE
 
-# Write your package code here.
+include("cache.jl")
+
+# Algorithms
+include("kalman.jl")
 
 end
