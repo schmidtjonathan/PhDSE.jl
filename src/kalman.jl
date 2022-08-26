@@ -9,7 +9,12 @@ Efficient and in-place implementation of the prediction step in a Kalman filter.
 - `u::AbstractVector` (optional): affine control input to the dynamics
 - `Q::AbstractMatrix`: transition covariance, i.e. process noise of the state space model
 """
-function kf_predict!(fcache::KFCache, Φ::AbstractMatrix, u::Union{AbstractVector, Missing}, Q::AbstractMatrix)
+function kf_predict!(
+    fcache::KFCache,
+    Φ::AbstractMatrix,
+    u::Union{AbstractVector,Missing},
+    Q::AbstractMatrix,
+)
     # predict mean
     # μ⁻ = Φμ [+ u]
     mul!(fcache.μ⁻, Φ, fcache.μ)
@@ -23,7 +28,6 @@ function kf_predict!(fcache::KFCache, Φ::AbstractMatrix, u::Union{AbstractVecto
     mul!(fcache.Σ⁻, Φ, fcache.predict_cache)
     fcache.Σ⁻ .+= Q
 end
-
 
 """
     kf_correct!(fcache, y, H, [v], R)
@@ -41,7 +45,7 @@ function kf_correct!(
     fcache::KFCache,
     y::AbstractVector,
     H::AbstractMatrix,
-    v::Union{AbstractVector, Missing},
+    v::Union{AbstractVector,Missing},
     R::AbstractMatrix,
 )
 
