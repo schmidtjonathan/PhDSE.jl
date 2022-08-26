@@ -1,0 +1,13 @@
+name = "PhDSE"
+uuid = "7ecd2ffa-f4c5-4dad-8846-8d8820c20168"
+authors = ["Jonathan Schmidt <jonathan.schmidt@uni-tuebingen.de> and contributors"]
+version = "0.1.0"
+
+[compat]
+julia = "1.7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
