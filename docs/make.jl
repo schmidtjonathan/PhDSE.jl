@@ -25,4 +25,5 @@ makedocs(;
 deploydocs(;
     repo="github.com/schmidtjonathan/PhDSE.jl",
     devbranch="main",
+    push_preview=true
 )
