@@ -12,8 +12,8 @@ Efficient and in-place implementation of the prediction step in a Kalman filter.
 function kf_predict!(
     fcache::KFCache,
     Φ::AbstractMatrix,
-    u::Union{AbstractVector,Missing},
     Q::AbstractMatrix,
+    u::Union{AbstractVector,Missing} = missing,
 )
     # predict mean
     # μ⁻ = Φμ [+ u]
@@ -43,10 +43,10 @@ Efficient and in-place implementation of the correction step in a Kalman filter.
 """
 function kf_correct!(
     fcache::KFCache,
-    y::AbstractVector,
     H::AbstractMatrix,
-    v::Union{AbstractVector,Missing},
     R::AbstractMatrix,
+    y::AbstractVector,
+    v::Union{AbstractVector,Missing} = missing,
 )
 
     # measure
@@ -76,3 +76,6 @@ function kf_correct!(
     mul!(fcache.Σ, -fcache.K_cache, fcache.correct_cache)
     fcache.Σ .+= fcache.Σ⁻
 end
+
+export kf_predict!
+export kf_correct!

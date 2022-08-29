@@ -1,5 +1,7 @@
 module PhDSE
 
+using LinearAlgebra
+
 include("cache.jl")
 
 # Algorithms

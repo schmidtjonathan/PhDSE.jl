@@ -40,7 +40,7 @@ function KFCache(state_dim::Int64, measurement_dim::Int64)
         residual_cache = zeros(measurement_dim),
         obs_cache = zeros(measurement_dim),
         S_cache = zeros(measurement_dim, measurement_dim),
-        K_cache = zeros(measurement_dim, state_dim),
+        K_cache = zeros(state_dim, measurement_dim),
         correct_cache = zeros(measurement_dim, state_dim),
     )
 end
