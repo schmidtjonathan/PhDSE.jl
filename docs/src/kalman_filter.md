@@ -85,7 +85,12 @@ plot!(
     ribbon=(1.96 .* [s[1] for (y, s) in sol], 1.96 .* [s[2] for (y, s) in sol]),
     label="Filter Estimate", linewidth=4, alpha=0.8
 )
+savefig("kalman_filter_example.svg")
+nothing # hide
 ```
+
+![](kalman_filter_example.svg)
+
 
 ## References
 [1] "Bayesian Filtering and Smoothing", Simo Särkka, Cambridge University Press, 2013.
