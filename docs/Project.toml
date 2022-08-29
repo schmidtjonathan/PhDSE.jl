@@ -1,3 +1,5 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+GaussianDistributions = "43dcc890-d446-5863-8d1a-14597580bb8d"
 PhDSE = "7ecd2ffa-f4c5-4dad-8846-8d8820c20168"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"

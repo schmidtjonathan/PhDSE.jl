@@ -1,6 +1,9 @@
 using PhDSE
 using Test
+using SafeTestsets
 
 @testset "PhDSE.jl" begin
-    # Write your tests here.
+    @safetestset "Algorithms" begin
+        include("algorithms.jl")
+    end
 end

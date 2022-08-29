@@ -1,5 +1,10 @@
 module PhDSE
 
-# Write your package code here.
+using LinearAlgebra
+
+include("cache.jl")
+
+# Algorithms
+include("kalman.jl")
 
 end

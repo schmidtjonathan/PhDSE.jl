@@ -16,10 +16,17 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Algorithms" => [
+            "Kalman Filter" => "algorithms/kalman_filter.md",
+        ],
+        "Examples" => [
+            "Kalman Filter" => "examples/kalman_filter.md",
+        ],
     ],
 )
 
 deploydocs(;
     repo="github.com/schmidtjonathan/PhDSE.jl",
     devbranch="main",
+    push_preview=true
 )

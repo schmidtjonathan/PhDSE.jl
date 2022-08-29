@@ -1,14 +1,2 @@
-```@meta
-CurrentModule = PhDSE
-```
-
 # PhDSE
-
-Documentation for [PhDSE](https://github.com/schmidtjonathan/PhDSE.jl).
-
-```@index
-```
-
-```@autodocs
-Modules = [PhDSE]
-```
+**P**robabilistic **h**igh-**D**imensional **S**tate **E**stimation
