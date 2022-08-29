@@ -45,8 +45,6 @@ H = [1 0 0 0; 0 1 0 0]
 
 d, D = size(H)
 
-@info "size(H) = " size(H)
-
 R = [s1^2 0; 0 s2^2]
 
 μ₀, Σ₀ = zeros(D), 2 * Matrix(1e-5 * I, D, D)
