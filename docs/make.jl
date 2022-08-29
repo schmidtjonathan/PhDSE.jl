@@ -16,6 +16,9 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Examples" => [
+            "Kalman Filter" => "kalman_filter.md",
+        ],
     ],
 )
 

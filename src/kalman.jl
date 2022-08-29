@@ -66,7 +66,7 @@ function kf_correct!(
     # The computation is (Σ⁻H') / S <=> Σ⁻H'S⁻¹ <=> Σ⁻H'(HΣ⁻H' + R)⁻¹
     rdiv!(fcache.K_cache, cholesky!(Symmetric(fcache.S_cache)))
 
-    # μ = μ⁻ + K' * (y - ŷ)
+    # μ = μ⁻ + K * (y - ŷ)
     fcache.residual_cache .= y .- fcache.obs_cache
     mul!(fcache.μ, fcache.K_cache, fcache.residual_cache)
     fcache.μ .+= fcache.μ⁻
