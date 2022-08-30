@@ -94,7 +94,7 @@ nothing # hide
 Initialize the cache ...
 
 ```@example 1
-sol = [(copy(μ₀), copy(Σ₀))]
+sol = [(t_0, copy(μ₀), copy(Σ₀))]
 fcache = KFCache(D, d)
 fcache.μ .= μ₀
 fcache.Σ .= Σ₀
@@ -116,7 +116,7 @@ for (i, t) in enumerate(t_0:dt:t_max)
     kf_correct!(fcache, Hₜ, R, zero_data, vₜ)
 
     if i % 5 == 1
-        push!(sol, (copy(fcache.μ), copy(fcache.Σ)))
+        push!(sol, (t, copy(fcache.μ), copy(fcache.Σ)))
     end
 end
 ```
@@ -124,8 +124,15 @@ end
 Finally, plot the results!
 
 ```@example 1
-anim = @animate for (μ, σ) in sol
-	plot(x_grid,  proj0 * μ, ylim=(-0.05, 1.0), ribbon=1.97 .* stack([sqrt.(proj0 * diag(S)) for (m, S) in sol]))
+anim = @animate for (t, μ, σ) in sol
+	plot(
+        x_grid,
+        proj0 * μ,
+        ylim=(-0.05, 1.0),
+        ribbon=1.97 .* stack([sqrt.(proj0 * diag(S)) for (m, S) in sol]),
+        label="u(t)",
+        title="t = $t",
+    )
 end
 
 
