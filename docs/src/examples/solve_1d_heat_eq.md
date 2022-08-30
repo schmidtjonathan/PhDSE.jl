@@ -142,4 +142,7 @@ gif(
 	fps = 10,
 	loop = 0
 )
+nothing # hide
 ```
+
+![](heat_eq_1d_example.gif)
