@@ -1,11 +1,14 @@
 using Test
 using LinearAlgebra
 using StatsBase
+using Random
 
 using PhDSE
 
 
 @testset "Kalman filter" begin
+    Random.seed!(1234)
+
     # dynamics
     A, Q = ones(1, 1), 0.1 .* ones(1, 1)
 
@@ -30,5 +33,5 @@ using PhDSE
     end
 
     rmse = rmsd([m[1] for (m, S) in sol], gt)
-    @test rmse < 0.1
+    @test rmse < 0.5
 end
