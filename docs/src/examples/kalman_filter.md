@@ -2,8 +2,6 @@
 
 From "Bayesian Filtering and Smoothing" [1], example 4.3.
 
-### First, set up the state space model.
-
 ```@example 1
 using LinearAlgebra
 using Random
@@ -12,8 +10,11 @@ using GaussianDistributions
 using Plots
 
 using PhDSE
+```
 
+First, set up the state space model.
 
+```@example 1
 function simulate(Φ, Q, u, H, R, v, μ₀, Σ₀, N; rng = Random.GLOBAL_RNG)
     x = rand(rng, Gaussian(μ₀, Σ₀))
     states = [x]
@@ -51,14 +52,14 @@ R = [s1^2 0; 0 s2^2]
 nothing # hide
 ```
 
-### Next, generate an example state trajectory and according measurements.
+Next, generate an example state trajectory and according measurements.
 
 ```@example 1
 ground_truth, data = simulate(A, Q, zeros(D), H, R, zeros(d), μ₀, Σ₀, 200, rng=MersenneTwister(3))
 nothing # hide
 ```
 
-### Compute the filtering posterior.
+Compute the filtering posterior.
 
 ```@example 1
 sol = [(μ₀, sqrt.(diag(Σ₀)))]
@@ -73,7 +74,7 @@ end
 nothing # hide
 ```
 
-### Plot the results.
+Finally, plot the results.
 
 ```@example 1
 scatter([y[1] for y in data], [y[2] for y in data], label="Measurements", markersize=2)
