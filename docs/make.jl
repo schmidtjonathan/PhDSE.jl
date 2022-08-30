@@ -21,6 +21,7 @@ makedocs(;
         ],
         "Examples" => [
             "Kalman Filter" => "examples/kalman_filter.md",
+            "Advanced: Solve PDE" => "examples/solve_1d_heat_eq.md",
         ],
     ],
 )
