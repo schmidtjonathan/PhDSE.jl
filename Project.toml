@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PSDMatrices = "fe68d972-6fd8-4755-bdf0-97d4c54cefdc"
 
 [compat]
 julia = "1.7"
