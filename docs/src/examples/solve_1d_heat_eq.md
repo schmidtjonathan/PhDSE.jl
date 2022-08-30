@@ -88,6 +88,7 @@ U0 = intersperse([u0, u0_dot])
 
 μ₀, Σ₀ = U0, 1e-10 .* Matrix(I(D))
 zero_data = zeros(d)
+nothing # hide
 ```
 
 Initialize the cache ...
@@ -97,6 +98,7 @@ sol = [(copy(μ₀), copy(Σ₀))]
 fcache = KFCache(D, d)
 fcache.μ .= μ₀
 fcache.Σ .= Σ₀
+nothing # hide
 ```
 
 ... and start filtering!
@@ -134,5 +136,3 @@ gif(
 	loop = 0
 )
 ```
-
-![](heat_eq_1d_example.gif)
