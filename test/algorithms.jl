@@ -10,14 +10,14 @@ using PhDSE
     Random.seed!(1234)
 
     # dynamics
-    A, Q = ones(1, 1), 0.1 .* ones(1, 1)
+    A, Q = ones(1, 1), 0.01 .* ones(1, 1)
 
     # observations
-    H, R = ones(1, 1), 0.05 .* I(1)
+    H, R = ones(1, 1), 0.025 .* I(1)
     d, D = size(H)
 
     gt = [sin(t / 10) for t in 1:100]
-    artificial_data = [s .+ 0.1 .* randn(1) for s in copy(gt)[2:end]]
+    artificial_data = [s .+ 0.05 .* randn(1) for s in copy(gt)[2:end]]
 
     # initial conditions
     μ₀, Σ₀ = gt[1] .* ones(1), 0.05 .* ones(1, 1)
@@ -33,5 +33,5 @@ using PhDSE
     end
 
     rmse = rmsd([m[1] for (m, S) in sol], gt)
-    @test rmse < 0.5
+    @test rmse < 0.1
 end
