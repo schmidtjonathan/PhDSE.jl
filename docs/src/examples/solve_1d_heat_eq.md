@@ -129,7 +129,7 @@ anim = @animate for (t, μ, σ) in sol
         x_grid,
         proj0 * μ,
         ylim=(-0.05, 1.0),
-        ribbon=1.97 .* stack([sqrt.(proj0 * diag(S)) for (m, S) in sol]),
+        ribbon=1.97 .* stack([sqrt.(proj0 * diag(S)) for (t, m, S) in sol]),
         label="u(t)",
         title="t = $t",
     )
@@ -140,9 +140,5 @@ gif(
 	anim,
 	"heat_eq_1d_example.gif",
 	fps = 10,
-	loop = 0
 )
-nothing # hide
 ```
-
-![](heat_eq_1d_example.gif)
