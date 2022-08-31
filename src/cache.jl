@@ -66,20 +66,12 @@ Base.@kwdef struct SqrtKFCache{vT<:AbstractVector,mT<:AbstractMatrix,psdT} <: Ab
     # | Auxiliary
     cache_DxD::mT
     cache_2DxD::mT
-    # --| Prediction step
-    # ----| Intermediate matmul result in prediction step
-    predict_cache::mT           # D x D
-    # --| Correction step
-    # --| residual vector
+    cache_dpDxdpD::mT
+    zero_cache_dxD::mT
     residual_cache::vT          # d
-    # ----| Evaluation of the vector field
     obs_cache::vT                # d
-    # ----| S matrix
     S_cache::psdT                 # d x d
-    # ----| Kalman gain K
     K_cache::mT               # d x D
-    # ----| Intermediate matmul result in correction step
-    correct_cache::mT           # d x D
 end
 
 function SqrtKFCache(state_dim::Int64, measurement_dim::Int64)
@@ -90,12 +82,12 @@ function SqrtKFCache(state_dim::Int64, measurement_dim::Int64)
         Σ = PSDMatrix(zeros(state_dim, state_dim)),
         cache_DxD = zeros(state_dim, state_dim),
         cache_2DxD = zeros(2state_dim, state_dim),
-        predict_cache = zeros(state_dim, state_dim),
+        cache_dpDxdpD = zeros(state_dim+measurement_dim, state_dim+measurement_dim),
+        zero_cache_dxD = zeros(measurement_dim, state_dim),
         residual_cache = zeros(measurement_dim),
         obs_cache = zeros(measurement_dim),
         S_cache = PSDMatrix(zeros(measurement_dim, measurement_dim)),
         K_cache = zeros(state_dim, measurement_dim),
-        correct_cache = zeros(measurement_dim, state_dim),
     )
 end
 

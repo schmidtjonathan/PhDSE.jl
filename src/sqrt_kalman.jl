@@ -22,14 +22,12 @@ function sqrt_kf_predict!(
     end
 
     # predict cov
-    R, M = fcache.cache_2DxD, fcache.cache_DxD
+    R = fcache.cache_2DxD
     D = size(Q, 1)
 
     mul!(view(R, 1:D, 1:D), fcache.Σ.R, Φ')
-    view(R, D+1:2D, 1:D) .= Q.R
-    mul!(M, R', R)
-    chol = cholesky!(Symmetric(M, :U), check=false)
-    copy!(fcache.Σ⁻.R, issuccess(chol) ? Matrix(chol.U) : qr!(R).R)
+    copy!(view(R, D+1:2D, 1:D), Q.R)
+    copy!(fcache.Σ⁻.R, qr!(R).R)
 end
 
 """
@@ -59,24 +57,34 @@ function sqrt_kf_correct!(
         fcache.obs_cache .+= v
     end
 
-    D = size(R, 1)
+    d, D = size(H)
 
-    copy!(fcache.S_cache, R)
-    S_chol = Cholesky(qr!(fcache.S_cache.R).R, :U, 0)
-    mul!(fcache.K_cache, Matrix(fcache.Σ⁻), H')
-    rdiv!(fcache.K_cache, S_chol)
+    # begin  (Eq. (31) in highdim paper) >>>
+    # Populate big block matrix
+    # top left: sqrt(Σ⁻) * H'
+    mul!(view(fcache.cache_dpDxdpD, 1:D, 1:d), fcache.Σ⁻.R, H')
+    # top right: sqrt(Σ⁻)
+    copy!(view(fcache.cache_dpDxdpD, 1:D, d+1:d+D), fcache.Σ⁻.R)
+    # bottom left: sqrt(R)
+    copy!(view(fcache.cache_dpDxdpD, D+1:D+d, 1:d), R.R)
+    # bottom right: 0_dxD
+    copy!(view(fcache.cache_dpDxdpD, D+1:D+d, d+1:d+D), fcache.zero_cache_dxD)
+
+    # QR-decompose
+    QR_R = qr!(fcache.cache_dpDxdpD).R
+
+    # Read out relevant matrices
+    copy!(fcache.Σ.R, view(QR_R, d+1:d+D, d+1:d+D))
+
+    copy!(fcache.S_cache.R, view(QR_R, 1:d, 1:d))
+    copy!(fcache.K_cache, view(QR_R, 1:d, d+1:d+D)')
+    rdiv!(fcache.K_cache, Cholesky(fcache.S_cache.R, :U, 0))
+
+    # <<< end  (Eq. (31) in highdim paper)
 
     fcache.residual_cache .= y .- fcache.obs_cache
     mul!(fcache.μ, fcache.K_cache, fcache.residual_cache)
     fcache.μ .+= fcache.μ⁻
-
-    mul!(fcache.cache_DxD, fcache.K_cache, H, -1.0, 0.0)
-    @inbounds @simd ivdep for i in 1:D
-        fcache.cache_DxD[i, i] += 1
-    end
-
-    X_A_Xt!(fcache.Σ, fcache.Σ⁻, fcache.cache_DxD)
-
 end
 
 export sqrt_kf_predict!
