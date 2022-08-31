@@ -18,6 +18,7 @@ makedocs(;
         "Home" => "index.md",
         "Algorithms" => [
             "Kalman Filter" => "algorithms/kalman_filter.md",
+            "Square-root Kalman filter" => "algorithms/sqrt_kalman_filter.md"
         ],
         "Examples" => [
             "Kalman Filter" => "examples/kalman_filter.md",
