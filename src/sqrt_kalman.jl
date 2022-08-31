@@ -22,12 +22,11 @@ function sqrt_kf_predict!(
     end
 
     # predict cov
-    R = fcache.cache_2DxD
     D = size(Q, 1)
 
-    mul!(view(R, 1:D, 1:D), fcache.Σ.R, Φ')
-    copy!(view(R, D+1:2D, 1:D), Q.R)
-    copy!(fcache.Σ⁻.R, qr!(R).R)
+    mul!(view(fcache.cache_2DxD, 1:D, 1:D), fcache.Σ.R, Φ')
+    copy!(view(fcache.cache_2DxD, D+1:2D, 1:D), Q.R)
+    copy!(fcache.Σ⁻.R, qr!(fcache.cache_2DxD).R)
 end
 
 """
@@ -74,13 +73,21 @@ function sqrt_kf_correct!(
     QR_R = qr!(fcache.cache_dpDxdpD).R
 
     # Read out relevant matrices
+    # R_22
     copy!(fcache.Σ.R, view(QR_R, d+1:d+D, d+1:d+D))
 
+    # R_11
     copy!(fcache.S_cache.R, view(QR_R, 1:d, 1:d))
-    copy!(fcache.K_cache, view(QR_R, 1:d, d+1:d+D)')
+
+    # R_12ᵀ (cross-covariance, save in K-cache for now)
+    mul!(fcache.K_cache, view(QR_R, 1:d, d+1:d+D)', fcache.S_cache.R)
+
+    # R_12ᵀ S⁻¹
     rdiv!(fcache.K_cache, Cholesky(fcache.S_cache.R, :U, 0))
 
     # <<< end  (Eq. (31) in highdim paper)
+
+
 
     fcache.residual_cache .= y .- fcache.obs_cache
     mul!(fcache.μ, fcache.K_cache, fcache.residual_cache)

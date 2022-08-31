@@ -25,7 +25,7 @@ Base.@kwdef struct KFCache{vT<:AbstractVector,mT<:AbstractMatrix} <: AbstractAlg
     # ----| S matrix
     S_cache::mT                 # d x d
     # ----| Kalman gain K
-    K_cache::mT               # d x D
+    K_cache::mT               # D x d
     # ----| Intermediate matmul result in correction step
     correct_cache::mT           # d x D
 end
@@ -71,7 +71,7 @@ Base.@kwdef struct SqrtKFCache{vT<:AbstractVector,mT<:AbstractMatrix,psdT} <: Ab
     residual_cache::vT          # d
     obs_cache::vT                # d
     S_cache::psdT                 # d x d
-    K_cache::mT               # d x D
+    K_cache::mT               # D x d
 end
 
 function SqrtKFCache(state_dim::Int64, measurement_dim::Int64)

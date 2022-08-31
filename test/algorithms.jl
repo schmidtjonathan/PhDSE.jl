@@ -2,6 +2,7 @@ using Test
 using LinearAlgebra
 using StatsBase
 using Random
+using PSDMatrices
 
 using PhDSE
 
@@ -34,4 +35,48 @@ using PhDSE
 
     rmse = rmsd([m[1] for (m, S) in sol], gt)
     @test rmse < 0.1
+end
+
+@testset "Square-root Kalman filter" begin
+    Random.seed!(1234)
+
+    Φ = randn(5, 5)
+    Q = Matrix(I(5) * 0.1)
+
+    H = randn(3, 5)
+    r = randn(3,3)
+    R = (r' * r) .+ 1e-2 .* Matrix(I(3))
+
+    y = [1.0, 2.0, 3.0]
+
+    m0, C0 = randn(5), Matrix(I(5) * 0.07)
+
+    QU = PSDMatrix(cholesky(Q).U)
+    RU = PSDMatrix(cholesky(R).U)
+    C0U = PSDMatrix(cholesky(C0).U)
+
+    kf_cache = KFCache(5, 3)
+    kf_cache.μ .= m0
+    kf_cache.Σ .= C0
+
+    sqkf_cache = SqrtKFCache(5, 3)
+    sqkf_cache.μ .= m0
+    copy!(sqkf_cache.Σ.R, C0U.R)
+
+    # PREDICT
+    kf_predict!(kf_cache, Φ, Q)
+    sqrt_kf_predict!(sqkf_cache, Φ, QU)
+
+    @test kf_cache.μ⁻ ≈ sqkf_cache.μ⁻
+    @test kf_cache.Σ⁻ ≈ Matrix(sqkf_cache.Σ⁻)
+
+    # UPDATE
+    kf_correct!(kf_cache, H, R, y)
+    sqrt_kf_correct!(sqkf_cache, H, RU, y)
+
+    @test (UpperTriangular(kf_cache.S_cache)' * UpperTriangular(kf_cache.S_cache)) ≈ sqkf_cache.S_cache.R' * sqkf_cache.S_cache.R
+    @test kf_cache.K_cache ≈ sqkf_cache.K_cache
+    @test kf_cache.Σ ≈ Matrix(sqkf_cache.Σ)
+    @test kf_cache.μ ≈ sqkf_cache.μ
+
 end
