@@ -75,8 +75,7 @@ function kf_correct!(
     # Σ = Σ⁻ - K * S * K' = Σ⁻ - (KL)(KL)' = Σ⁻ - (UK')'(UK')
     # see (*1)
     mul!(fcache.correct_cache, UpperTriangular(fcache.S_cache), fcache.K_cache')
-    mul!(fcache.Σ, -fcache.correct_cache', fcache.correct_cache)
-    fcache.Σ .+= fcache.Σ⁻
+    mul!(fcache.Σ, fcache.correct_cache', fcache.correct_cache, -1.0, 1.0)
 end
 
 export kf_predict!
