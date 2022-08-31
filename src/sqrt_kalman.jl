@@ -6,7 +6,7 @@ Efficient and in-place implementation of the prediction step in a square-root Ka
 # Arguments
 - `fcache::KFCache`: a cache holding memory-heavy objects
 - `Φ::AbstractMatrix`: transition matrix, i.e. dynamics of the state space model
-- `Q::PSDMatrix`: transition covariance, i.e. process noise of the state space model
+- `Q::PSDMatrix`: **right** matrix square root of transition covariance, i.e. process noise of the state space model
 - `u::AbstractVector` (optional): affine control input to the dynamics
 """
 function sqrt_kf_predict!(
@@ -39,7 +39,7 @@ Efficient and in-place implementation of the correction step in a square-root Ka
 - `y::AbstractVector`: a measurement (data point)
 - `H::AbstractMatrix`: measurement matrix of the state space model
 - `v::AbstractVector` (optional): affine control input to the measurement
-- `R::AbstractMatrix`: measurement noise covariance of the state space model
+- `R::PSDMatrix`: **right** matrix square root of measurement noise covariance of the state space model
 """
 function sqrt_kf_correct!(
     fcache::SqrtKFCache,
@@ -79,15 +79,13 @@ function sqrt_kf_correct!(
     # R_11
     copy!(fcache.S_cache.R, view(QR_R, 1:d, 1:d))
 
-    # R_12ᵀ (cross-covariance, save in K-cache for now)
+    # R_12ᵀ * R_11 (cross-covariance, save in K-cache for now)
     mul!(fcache.K_cache, view(QR_R, 1:d, d+1:d+D)', fcache.S_cache.R)
 
     # R_12ᵀ S⁻¹
     rdiv!(fcache.K_cache, Cholesky(fcache.S_cache.R, :U, 0))
 
     # <<< end  (Eq. (31) in highdim paper)
-
-
 
     fcache.residual_cache .= y .- fcache.obs_cache
     mul!(fcache.μ, fcache.K_cache, fcache.residual_cache)
