@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Kalman Filter · PhDSE.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://schmidtjonathan.github.io/PhDSE.jl/examples/kalman_filter/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">PhDSE.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Algorithms</span><ul><li><a class="tocitem" href="../../algorithms/kalman_filter/">Kalman Filter</a></li><li><a class="tocitem" href="../../algorithms/sqrt_kalman_filter/">Square-root Kalman filter</a></li></ul></li><li><span class="tocitem">Examples</span><ul><li class="is-active"><a class="tocitem" href>Kalman Filter</a><ul class="internal"><li><a class="tocitem" href="#References"><span>References</span></a></li></ul></li><li><a class="tocitem" href="../solve_1d_heat_eq/">Advanced: Solve PDE</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Kalman Filter</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Kalman Filter</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/schmidtjonathan/PhDSE.jl/blob/main/docs/src/examples/kalman_filter.md#" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Kalman-filter-for-car-tracking"><a class="docs-heading-anchor" href="#Kalman-filter-for-car-tracking">Kalman filter for car tracking</a><a id="Kalman-filter-for-car-tracking-1"></a><a class="docs-heading-anchor-permalink" href="#Kalman-filter-for-car-tracking" title="Permalink"></a></h1><p>From &quot;Bayesian Filtering and Smoothing&quot; [1], example 4.3.</p><pre><code class="language-julia hljs">using LinearAlgebra
+using Random
+using GaussianDistributions
+
+using Plots
+
+using PhDSE</code></pre><p>First, set up the state space model.</p><pre><code class="language-julia hljs">function simulate(Φ, Q, u, H, R, v, μ₀, Σ₀, N; rng = Random.GLOBAL_RNG)
+    x = rand(rng, Gaussian(μ₀, Σ₀))
+    states = [x]
+    observations = []
+
+    for i in 1:N
+        push!(states, rand(rng, Gaussian(Φ * states[end] + u, Q)))
+        push!(observations, rand(rng, Gaussian(H * states[end] + v, R)))
+    end
+    return states, observations
+end
+
+
+dt = 0.1
+s1, s2 = 0.5, 0.5
+q1, q2 = 1, 1
+
+A = [1 0 dt 0;
+     0 1 0 dt;
+     0 0 1 0;
+     0 0 0 1]
+
+Q = [q1*dt^3/3 0 q1*dt^2/2 0;
+     0 q2*dt^3/3 0 q2*dt^2/2;
+     q1*dt^2/2 0 q1*dt 0;
+     0 q2*dt^2/2 0 q2*dt]
+
+H = [1 0 0 0; 0 1 0 0]
+
+d, D = size(H)
+
+R = [s1^2 0; 0 s2^2]
+
+μ₀, Σ₀ = zeros(D), 2 * Matrix(1e-5 * I, D, D)</code></pre><p>Next, generate an example state trajectory and according measurements.</p><pre><code class="language-julia hljs">ground_truth, data = simulate(A, Q, zeros(D), H, R, zeros(d), μ₀, Σ₀, 200, rng=MersenneTwister(3))</code></pre><p>Compute the filtering posterior.</p><pre><code class="language-julia hljs">sol = [(μ₀, sqrt.(diag(Σ₀)))]
+fcache = KFCache(D, d)
+fcache.μ .= μ₀
+fcache.Σ .= Σ₀
+for y in data
+    kf_predict!(fcache, A, Q)
+    kf_correct!(fcache, H, R, y)
+    push!(sol, (copy(fcache.μ), sqrt.(diag(fcache.Σ))))
+end</code></pre><p>Finally, plot the results.</p><pre><code class="language-julia hljs">scatter([y[1] for y in data], [y[2] for y in data], label=&quot;Measurements&quot;, markersize=2)
+plot!([y[1] for y in ground_truth], [y[2] for y in ground_truth], label=&quot;True Location&quot;, linewidth=4, alpha=0.8)
+plot!(
+    [y[1] for (y, s) in sol], [y[2] for (y, s) in sol],
+    ribbon=(1.96 .* [s[1] for (y, s) in sol], 1.96 .* [s[2] for (y, s) in sol]),
+    label=&quot;Filter Estimate&quot;, linewidth=4, alpha=0.8
+)
+savefig(&quot;kalman_filter_example.svg&quot;)</code></pre><p><img src="../kalman_filter_example.svg" alt/></p><h2 id="References"><a class="docs-heading-anchor" href="#References">References</a><a id="References-1"></a><a class="docs-heading-anchor-permalink" href="#References" title="Permalink"></a></h2><p>[1] &quot;Bayesian Filtering and Smoothing&quot;, Simo Särkka, Cambridge University Press, 2013.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../algorithms/sqrt_kalman_filter/">« Square-root Kalman filter</a><a class="docs-footer-nextpage" href="../solve_1d_heat_eq/">Advanced: Solve PDE »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Wednesday 31 August 2022 16:03">Wednesday 31 August 2022</span>. Using Julia version 1.8.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
