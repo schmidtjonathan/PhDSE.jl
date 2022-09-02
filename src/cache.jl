@@ -64,14 +64,10 @@ Base.@kwdef struct SqrtKFCache{vT<:AbstractVector,mT<:AbstractMatrix,psdT} <:
     Σ::psdT                       # D x D
 
     # | Auxiliary
-    cache_DxD::mT
     cache_2DxD::mT
     cache_dpDxdpD::mT
     zero_cache_dxD::mT
-    residual_cache::vT          # d
     obs_cache::vT                # d
-    S_cache::psdT                 # d x d
-    K_cache::mT               # D x d
 end
 
 function SqrtKFCache(state_dim::Int64, measurement_dim::Int64)
@@ -80,14 +76,10 @@ function SqrtKFCache(state_dim::Int64, measurement_dim::Int64)
         Σ⁻ = PSDMatrix(zeros(state_dim, state_dim)),
         μ = zeros(state_dim),
         Σ = PSDMatrix(zeros(state_dim, state_dim)),
-        cache_DxD = zeros(state_dim, state_dim),
         cache_2DxD = zeros(2state_dim, state_dim),
         cache_dpDxdpD = zeros(state_dim + measurement_dim, state_dim + measurement_dim),
         zero_cache_dxD = zeros(measurement_dim, state_dim),
-        residual_cache = zeros(measurement_dim),
         obs_cache = zeros(measurement_dim),
-        S_cache = PSDMatrix(zeros(measurement_dim, measurement_dim)),
-        K_cache = zeros(state_dim, measurement_dim),
     )
 end
 

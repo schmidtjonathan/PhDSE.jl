@@ -74,8 +74,6 @@ end
     kf_correct!(kf_cache, H, R, y)
     sqrt_kf_correct!(sqkf_cache, H, RU, y)
 
-    @test (UpperTriangular(kf_cache.S_cache)' * UpperTriangular(kf_cache.S_cache)) ≈ sqkf_cache.S_cache.R' * sqkf_cache.S_cache.R
-    @test kf_cache.K_cache ≈ sqkf_cache.K_cache
     @test kf_cache.Σ ≈ Matrix(sqkf_cache.Σ)
     @test kf_cache.μ ≈ sqkf_cache.μ
 

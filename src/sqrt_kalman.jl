@@ -58,7 +58,6 @@ function sqrt_kf_correct!(
 
     d, D = size(H)
 
-    # begin  (Eq. (31) in highdim paper) >>>
     # Populate big block matrix
     # top left: sqrt(Σ⁻) * H'
     mul!(view(fcache.cache_dpDxdpD, 1:D, 1:d), fcache.Σ⁻.R, H')
@@ -73,22 +72,10 @@ function sqrt_kf_correct!(
     QR_R = qr!(fcache.cache_dpDxdpD).R
 
     # Read out relevant matrices
-    # R_22
+    # √Σ = R₂₂
     copy!(fcache.Σ.R, view(QR_R, d+1:d+D, d+1:d+D))
-
-    # R_11
-    copy!(fcache.S_cache.R, view(QR_R, 1:d, 1:d))
-
-    # R_12ᵀ * R_11 (cross-covariance, save in K-cache for now)
-    mul!(fcache.K_cache, view(QR_R, 1:d, d+1:d+D)', fcache.S_cache.R)
-
-    # R_12ᵀ S⁻¹
-    rdiv!(fcache.K_cache, Cholesky(fcache.S_cache.R, :U, 0))
-
-    # <<< end  (Eq. (31) in highdim paper)
-
-    fcache.residual_cache .= y .- fcache.obs_cache
-    mul!(fcache.μ, fcache.K_cache, fcache.residual_cache)
+    # μ = μ⁻ + R₁₂ᵀ⋅ (R₁₁)⁻⋅(y - ̂y)
+    mul!(fcache.μ, view(QR_R, 1:d, d+1:d+D)', ldiv!(LowerTriangular(view(QR_R, 1:d, 1:d)'), y .- fcache.obs_cache))
     fcache.μ .+= fcache.μ⁻
 end
 
