@@ -129,6 +129,7 @@ anim = @animate for (t, μ, σ) in sol
         x_grid,
         proj0 * μ,
         ylim=(-0.05, 1.0),
+        linewidth=3,
         ribbon=1.97 .* stack([sqrt.(proj0 * diag(S)) for (t, m, S) in sol]),
         label="u(t)",
         title="t = $(round(t; digits=2))",

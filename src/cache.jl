@@ -25,7 +25,7 @@ Base.@kwdef struct KFCache{vT<:AbstractVector,mT<:AbstractMatrix} <: AbstractAlg
     # ----| S matrix
     S_cache::mT                 # d x d
     # ----| Kalman gain K
-    K_cache::mT               # d x D
+    K_cache::mT               # D x d
     # ----| Intermediate matmul result in correction step
     correct_cache::mT           # d x D
 end
@@ -46,3 +46,41 @@ function KFCache(state_dim::Int64, measurement_dim::Int64)
 end
 
 export KFCache
+
+# ==== SQRT Kalman filter
+
+Base.@kwdef struct SqrtKFCache{vT<:AbstractVector,mT<:AbstractMatrix,psdT} <:
+                   AbstractAlgCache
+    #=
+        D : state dimension
+        d : measurement dimension
+    =#
+
+    # Predicted moments
+    μ⁻::vT                      # D
+    Σ⁻::psdT                      # D x D
+    # Corrected moments
+    μ::vT                       # D
+    Σ::psdT                       # D x D
+
+    # | Auxiliary
+    cache_2DxD::mT
+    cache_dpDxdpD::mT
+    zero_cache_dxD::mT
+    obs_cache::vT                # d
+end
+
+function SqrtKFCache(state_dim::Int64, measurement_dim::Int64)
+    return SqrtKFCache(
+        μ⁻ = zeros(state_dim),
+        Σ⁻ = PSDMatrix(zeros(state_dim, state_dim)),
+        μ = zeros(state_dim),
+        Σ = PSDMatrix(zeros(state_dim, state_dim)),
+        cache_2DxD = zeros(2state_dim, state_dim),
+        cache_dpDxdpD = zeros(state_dim + measurement_dim, state_dim + measurement_dim),
+        zero_cache_dxD = zeros(measurement_dim, state_dim),
+        obs_cache = zeros(measurement_dim),
+    )
+end
+
+export SqrtKFCache
