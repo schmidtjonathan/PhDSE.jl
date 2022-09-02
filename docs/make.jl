@@ -1,5 +1,8 @@
+ENV["GKSwstype"] = 100
+
 using PhDSE
 using Documenter
+
 
 DocMeta.setdocmeta!(PhDSE, :DocTestSetup, :(using PhDSE); recursive=true)
 
@@ -31,5 +34,4 @@ makedocs(;
 deploydocs(;
     repo="github.com/schmidtjonathan/PhDSE.jl",
     devbranch="main",
-    push_preview=true
 )
