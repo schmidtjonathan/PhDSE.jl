@@ -75,7 +75,11 @@ function sqrt_kf_correct!(
     # √Σ = R₂₂
     copy!(fcache.Σ.R, view(QR_R, d+1:d+D, d+1:d+D))
     # μ = μ⁻ + R₁₂ᵀ⋅ (R₁₁)⁻⋅(y - ̂y)
-    mul!(fcache.μ, view(QR_R, 1:d, d+1:d+D)', ldiv!(LowerTriangular(view(QR_R, 1:d, 1:d)'), y .- fcache.obs_cache))
+    mul!(
+        fcache.μ,
+        view(QR_R, 1:d, d+1:d+D)',
+        ldiv!(LowerTriangular(view(QR_R, 1:d, 1:d)'), y .- fcache.obs_cache),
+    )
     fcache.μ .+= fcache.μ⁻
 end
 
