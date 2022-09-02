@@ -74,7 +74,7 @@ fcache.Σ .= Σ₀
 for y in data
     kf_predict!(fcache, A, Q)
     kf_correct!(fcache, H, R, y)
-    push!(sol, (copy(fcache.μ), sqrt.(diag(fcache.Σ))))
+    push!(sol, (copy(fcache.μ), sqrt.(diag(Matrix(fcache.Σ)))))
 end
 nothing # hide
 ```
