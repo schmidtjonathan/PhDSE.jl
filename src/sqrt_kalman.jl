@@ -1,5 +1,5 @@
 """
-    sqrt_kf_predict!(fcache, Φ, [u], Q)
+    sqrt_kf_predict!(fcache, Φ, Q, [u])
 
 Efficient and in-place implementation of the prediction step in a square-root Kalman filter.
 
@@ -30,7 +30,7 @@ function sqrt_kf_predict!(
 end
 
 """
-    sqrt_kf_correct!(fcache, y, H, [v], R)
+    sqrt_kf_correct!(fcache, H, R, y, [v])
 
 Efficient and in-place implementation of the correction step in a square-root Kalman filter.
 
@@ -38,8 +38,8 @@ Efficient and in-place implementation of the correction step in a square-root Ka
 - `fcache::KFCache`: a cache holding memory-heavy objects
 - `y::AbstractVector`: a measurement (data point)
 - `H::AbstractMatrix`: measurement matrix of the state space model
-- `v::AbstractVector` (optional): affine control input to the measurement
 - `R::PSDMatrix`: **right** matrix square root of measurement noise covariance of the state space model
+- `v::AbstractVector` (optional): affine control input to the measurement
 """
 function sqrt_kf_correct!(
     fcache::SqrtKFCache,
