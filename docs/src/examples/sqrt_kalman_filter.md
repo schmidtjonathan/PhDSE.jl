@@ -68,12 +68,12 @@ Compute the filtering posterior.
 
 ```@example 1
 sol = [(μ₀, sqrt.(diag(Σ₀)))]
-fcache = KFCache(D, d)
+fcache = SqrtKFCache(D, d)
 fcache.μ .= μ₀
-fcache.Σ .= Σ₀
+copy!(fcache.Σ, sqrt_Σ₀)
 for y in data
-    kf_predict!(fcache, A, Q)
-    kf_correct!(fcache, H, R, y)
+    sqrt_kf_predict!(fcache, A, sqrt_Q)
+    sqrt_kf_correct!(fcache, H, sqrt_R, y)
     push!(sol, (copy(fcache.μ), sqrt.(diag(Matrix(fcache.Σ)))))
 end
 nothing # hide
@@ -89,11 +89,11 @@ plot!(
     ribbon=(1.96 .* [s[1] for (y, s) in sol], 1.96 .* [s[2] for (y, s) in sol]),
     label="Filter Estimate", linewidth=4, alpha=0.8
 )
-savefig("kalman_filter_example.svg")
+savefig("sqrt_kalman_filter_example.svg")
 nothing # hide
 ```
 
-![](kalman_filter_example.svg)
+![](sqrt_kalman_filter_example.svg)
 
 
 ## References
