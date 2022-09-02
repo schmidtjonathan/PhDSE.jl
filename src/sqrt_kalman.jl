@@ -7,7 +7,7 @@ but is numerically more stable.
 Works entirely on matrix-square-roots of the covariance matrices.
 
 # Arguments
-- `fcache::KFCache`: a cache holding memory-heavy objects
+- `fcache::SqrtKFCache`: a cache holding memory-heavy objects
 - `Φ::AbstractMatrix`: transition matrix, i.e. dynamics of the state space model
 - `Q::PSDMatrix`: **right** matrix square root of transition covariance, i.e. process noise of the state space model
 - `u::AbstractVector` (optional): affine control input to the dynamics
@@ -44,7 +44,7 @@ but is numerically more stable.
 Works entirely on matrix-square-roots of the covariance matrices.
 
 # Arguments
-- `fcache::KFCache`: a cache holding memory-heavy objects
+- `fcache::SqrtKFCache`: a cache holding memory-heavy objects
 - `y::AbstractVector`: a measurement (data point)
 - `H::AbstractMatrix`: measurement matrix of the state space model
 - `R::PSDMatrix`: **right** matrix square root of measurement noise covariance of the state space model
