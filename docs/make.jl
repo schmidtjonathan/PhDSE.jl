@@ -1,5 +1,3 @@
-ENV["GKSwstype"] = 100
-
 using PhDSE
 using Documenter
 
