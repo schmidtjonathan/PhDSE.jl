@@ -43,19 +43,20 @@ R = [s1^2 0; 0 s2^2]
 sqrt_R = PSDMatrix(cholesky(R).U)
 
 μ₀, Σ₀ = zeros(D), 2 * Matrix(1e-5 * I, D, D)
-sqrt_Σ₀ = cholesky(Σ₀).U</code></pre><p>Next, generate an example state trajectory and according measurements.</p><pre><code class="language-julia hljs">ground_truth, data = simulate(A, Q, zeros(D), H, R, zeros(d), μ₀, Σ₀, 200, rng=MersenneTwister(3))</code></pre><p>Compute the filtering posterior.</p><pre><code class="language-julia hljs">sol = [(μ₀, sqrt.(diag(Σ₀)))]
-fcache = KFCache(D, d)
+sqrt_Σ₀ = cholesky(Σ₀).U</code></pre><p>Next, generate an example state trajectory and according measurements.</p><pre><code class="language-julia hljs">ground_truth, data = simulate(A, Q, zeros(D), H, R, zeros(d), μ₀, Σ₀, 200, rng=MersenneTwister(3))</code></pre><p>Compute the filtering posterior.</p><pre><code class="language- hljs">sol = [(μ₀, sqrt.(diag(Σ₀)))]
+fcache = SqrtKFCache(D, d)
 fcache.μ .= μ₀
-fcache.Σ .= Σ₀
+copy!(fcache.Σ, sqrt_Σ₀)
 for y in data
-    kf_predict!(fcache, A, Q)
-    kf_correct!(fcache, H, R, y)
+    sqrt_kf_predict!(fcache, A, sqrt_Q)
+    sqrt_kf_correct!(fcache, H, sqrt_R, y)
     push!(sol, (copy(fcache.μ), sqrt.(diag(Matrix(fcache.Σ)))))
-end</code></pre><p>Finally, plot the results.</p><pre><code class="language-julia hljs">scatter([y[1] for y in data], [y[2] for y in data], label=&quot;Measurements&quot;, markersize=2)
+end
+nothing # hide</code></pre><p>Finally, plot the results.</p><pre><code class="language-julia hljs">scatter([y[1] for y in data], [y[2] for y in data], label=&quot;Measurements&quot;, markersize=2)
 plot!([y[1] for y in ground_truth], [y[2] for y in ground_truth], label=&quot;True Location&quot;, linewidth=4, alpha=0.8)
 plot!(
     [y[1] for (y, s) in sol], [y[2] for (y, s) in sol],
     ribbon=(1.96 .* [s[1] for (y, s) in sol], 1.96 .* [s[2] for (y, s) in sol]),
     label=&quot;Filter Estimate&quot;, linewidth=4, alpha=0.8
 )
-savefig(&quot;kalman_filter_example.svg&quot;)</code></pre><p><img src="../kalman_filter_example.svg" alt/></p><h2 id="References"><a class="docs-heading-anchor" href="#References">References</a><a id="References-1"></a><a class="docs-heading-anchor-permalink" href="#References" title="Permalink"></a></h2><p>[1] &quot;Bayesian Filtering and Smoothing&quot;, Simo Särkka, Cambridge University Press, 2013.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../kalman_filter/">« Kalman Filter</a><a class="docs-footer-nextpage" href="../solve_1d_heat_eq/">Advanced: Solve PDE »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Friday 2 September 2022 09:07">Friday 2 September 2022</span>. Using Julia version 1.8.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+savefig(&quot;sqrt_kalman_filter_example.svg&quot;)</code></pre><p><img src="../sqrt_kalman_filter_example.svg" alt/></p><h2 id="References"><a class="docs-heading-anchor" href="#References">References</a><a id="References-1"></a><a class="docs-heading-anchor-permalink" href="#References" title="Permalink"></a></h2><p>[1] &quot;Bayesian Filtering and Smoothing&quot;, Simo Särkka, Cambridge University Press, 2013.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../kalman_filter/">« Kalman Filter</a><a class="docs-footer-nextpage" href="../solve_1d_heat_eq/">Advanced: Solve PDE »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Friday 2 September 2022 09:18">Friday 2 September 2022</span>. Using Julia version 1.8.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
