@@ -70,7 +70,7 @@ Compute the filtering posterior.
 sol = [(μ₀, sqrt.(diag(Σ₀)))]
 fcache = SqrtKFCache(D, d)
 fcache.μ .= μ₀
-copy!(fcache.Σ, sqrt_Σ₀)
+copy!(fcache.Σ.R, sqrt_Σ₀)
 for y in data
     sqrt_kf_predict!(fcache, A, sqrt_Q)
     sqrt_kf_correct!(fcache, H, sqrt_R, y)
