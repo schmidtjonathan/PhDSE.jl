@@ -33,10 +33,15 @@ as described, e.g., [in this paper](https://proceedings.mlr.press/v151/kramer22a
 ## Build the state-space model...
 ...according to, e.g., [this paper](https://proceedings.mlr.press/v162/kramer22b/kramer22b.pdf).
 
-Tl;DR:
+<details>
+<summary><b>Tl;DR</b></summary>
+
 * The **dynamics** come from a discretized integrated Brownian motion prior, which serves as a prior over the PDE solution and its first $q$ derivatives.
 * The **observation model** measures the deviation between the modelled first derivative and the evaluation of the ODE vector field at the modelled ODE solution.
 * The posterior is computed using an (extended) Kalman filter.
+
+</details>
+
 
 ```julia
 dx = 0.01
