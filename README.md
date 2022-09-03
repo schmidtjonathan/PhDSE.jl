@@ -27,7 +27,8 @@ The equation is given as
 $$\frac{\partial u(t, x)}{\partial t} = \nu \Delta u(t, x) =: F(t, x),$$
 where $\Delta$ is the Laplace operator and $u(t, x)$ is the solution of our PDE.
 
-Without going into too much details, we discretize the spatial independent variable $x$ on a finite grid $\mathbb{X}$ and use a finite-difference scheme to discretize $\Delta$. That leaves us with an ODE to solve, as described, e.g., [in this paper](https://proceedings.mlr.press/v151/kramer22a/kramer22a.pdf).
+Without going into too much details, we discretize the spatial independent variable $x$ on a finite grid $\mathbb{X}$ and use a finite-difference scheme to discretize $\Delta$. That leaves us with an ODE to solve $$\frac{\mathrm{d} u(t)}{\mathrm{d}t} = F(t, \mathbb{X}),$$
+as described, e.g., [in this paper](https://proceedings.mlr.press/v151/kramer22a/kramer22a.pdf).
 
 ## Build the state-space model...
 ...according to, e.g., [this paper](https://proceedings.mlr.press/v162/kramer22b/kramer22b.pdf).
