@@ -24,9 +24,7 @@ If you feel like playing around with the package a bit then you can install it d
 Exemplified here, using a simple one-dimensional heat equation, it is possible to use a probabilistic numerical algorithm that is based on a Kalman filter to *solve a partial differential equation* (PDE).
 
 The equation is given as
-$$
-\frac{\partial u(t, x)}{\partial t} = \nu \Delta u(t, x) =: F(t, x),
-$$
+$$\frac{\partial u(t, x)}{\partial t} = \nu \Delta u(t, x) =: F(t, x),$$
 where $\Delta$ is the Laplace operator and $u(t, x)$ is the solution of our PDE.
 
 Without going into too much details, we discretize the spatial independent variable $x$ on a finite grid $\mathbb{X}$ and use a finite-difference scheme to discretize $\Delta$. That leaves us with an ODE to solve, as described, e.g., [in this paper](https://proceedings.mlr.press/v151/kramer22a/kramer22a.pdf).
