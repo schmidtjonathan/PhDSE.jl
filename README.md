@@ -21,21 +21,25 @@ If you feel like playing around with the package a bit then you can install it d
 # Example
 
 ## Setting: Solving a partial differential equation (PDE)
-Exemplified here, using a simple one-dimensional heat equation, it is possible to use a probabilistic numerical algorithm that is based on a Kalman filter to *solve a partial differential equation* (PDE).
+We use a probabilistic numerical algorithm that is based on a Kalman filter to *solve a partial differential equation* (PDE).
 
+<details>
+<summary><b>Details</b></summary>
 The equation is given as
 $$\frac{\partial u(t, x)}{\partial t} = \nu \Delta u(t, x) =: F(t, x),$$
 where $\Delta$ is the Laplace operator and $u(t, x)$ is the solution of our PDE.
 
-Without going into too much details, we discretize the spatial independent variable $x$ on a finite grid $\mathbb{X}$ and use a finite-difference scheme to discretize $\Delta$. That leaves us with an ODE to solve $$\frac{\mathrm{d} u(t)}{\mathrm{d}t} = F(t, \mathbb{X}),$$
+We discretize the spatial independent variable $x$ on a finite grid $\mathbb{X}$ and use a finite-difference scheme to discretize $\Delta$. That leaves us with an ODE to solve $$\frac{\mathrm{d} u(t)}{\mathrm{d}t} = F(t, \mathbb{X}),$$
 as described, e.g., [in this paper](https://proceedings.mlr.press/v151/kramer22a/kramer22a.pdf).
+</details>
 
 ## Build the state-space model...
-...according to, e.g., [this paper](https://proceedings.mlr.press/v162/kramer22b/kramer22b.pdf).
 
 <details>
-<summary><b>Tl;DR</b></summary>
+<summary><b>Details ...</b></summary>
+can be found in, e.g., [this paper](https://proceedings.mlr.press/v162/kramer22b/kramer22b.pdf).
 
+(Very) brief summary:
 * The **dynamics** come from a discretized integrated Brownian motion prior, which serves as a prior over the PDE solution and its first $q$ derivatives.
 * The **observation model** measures the deviation between the modelled first derivative and the evaluation of the ODE vector field at the modelled ODE solution.
 * The posterior is computed using an (extended) Kalman filter.
