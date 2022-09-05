@@ -7,7 +7,6 @@ using BenchmarkTools
 
 using PhDSE
 
-
 include("_setup.jl")
 sqrt_Q = PSDMatrix(cholesky(Q).U)
 sqrt_R = PSDMatrix(cholesky(R).U)
@@ -48,9 +47,9 @@ println("\n")
 
 open(joinpath(directory_name, "bres_out.txt"), "w") do io
     println(io, "Benchmarks for prediction step\n\n")
-	show(io, MIME"text/plain"(), bres_predict)
+    show(io, MIME"text/plain"(), bres_predict)
     println(io, "\n\nBenchmarks for prediction step\n\n")
-	show(io, MIME"text/plain"(), bres_correct)
+    show(io, MIME"text/plain"(), bres_correct)
 end;
 
 @info "Done."
