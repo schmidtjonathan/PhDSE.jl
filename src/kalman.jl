@@ -1,13 +1,16 @@
 """
-    kf_predict!(fcache, Φ, [u], Q)
+    kf_predict!(fcache, Φ, Q, [u])
 
 Efficient and in-place implementation of the prediction step in a Kalman filter.
+
+For a numerically more stable version of the Kalman filter, have a look
+at the square-root Kalman filter at [`sqrt_kf_predict!`](@ref).
 
 # Arguments
 - `fcache::KFCache`: a cache holding memory-heavy objects
 - `Φ::AbstractMatrix`: transition matrix, i.e. dynamics of the state space model
-- `u::AbstractVector` (optional): affine control input to the dynamics
 - `Q::AbstractMatrix`: transition covariance, i.e. process noise of the state space model
+- `u::AbstractVector` (optional): affine control input to the dynamics
 """
 function kf_predict!(
     fcache::KFCache,
@@ -30,16 +33,19 @@ function kf_predict!(
 end
 
 """
-    kf_correct!(fcache, y, H, [v], R)
+    kf_correct!(fcache, H, R, y, [v])
 
 Efficient and in-place implementation of the correction step in a Kalman filter.
 
+For a numerically more stable version of the Kalman filter, have a look
+at the square-root Kalman filter at [`sqrt_kf_correct!`](@ref).
+
 # Arguments
 - `fcache::KFCache`: a cache holding memory-heavy objects
-- `y::AbstractVector`: a measurement (data point)
 - `H::AbstractMatrix`: measurement matrix of the state space model
-- `v::AbstractVector` (optional): affine control input to the measurement
 - `R::AbstractMatrix`: measurement noise covariance of the state space model
+- `y::AbstractVector`: a measurement (data point)
+- `v::AbstractVector` (optional): affine control input to the measurement
 """
 function kf_correct!(
     fcache::KFCache,
@@ -48,7 +54,6 @@ function kf_correct!(
     y::AbstractVector,
     v::Union{AbstractVector,Missing} = missing,
 )
-
     # measure
     # ̂y = Hμ⁻ [+ v]
     mul!(fcache.obs_cache, H, fcache.μ⁻)

@@ -81,7 +81,6 @@ information_operator_jac(u) = ForwardDiff.jacobian(information_operator, u)
 
 R = 1e-10 * Matrix(I(d))
 
-
 u0 =  exp.(-100 .* (x_grid .- 0.5).^2)
 u0_dot = ν .* Δ_1d(u0, dx)
 U0 = intersperse([u0, u0_dot])
