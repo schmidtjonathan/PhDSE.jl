@@ -27,7 +27,7 @@ or
 
 # Example
 
-## Setting: Solving a partial differential equation (PDE)
+### Setting: Solving a partial differential equation (PDE)
 We use a probabilistic numerical algorithm that is based on a Kalman filter to *solve a partial differential equation* (PDE).
 
 <details>
@@ -42,14 +42,14 @@ as described, e.g., [in this paper](https://proceedings.mlr.press/v151/kramer22a
 
 </details>
 
-## Build the state-space model...
+### Build the state-space model...
 
 <details>
 <summary><b>Details ...</b></summary>
 
 ...can be found in, e.g., [this paper](https://proceedings.mlr.press/v162/kramer22b/kramer22b.pdf).
 
-#### (Very) brief summary:
+##### (Very) brief summary:
 * The **dynamics** come from a discretized integrated Brownian motion prior, which serves as a prior over the PDE solution and its first $q$ derivatives.
 * The **observation model** measures the deviation between the modelled first derivative and the evaluation of the ODE vector field at the modelled ODE solution.
 * The posterior is computed using an (extended) Kalman filter.
@@ -90,7 +90,7 @@ zero_data = zeros(d)
 
 > :warning: To see the implementation of the auxiliary functions used above, [please have a look here](https://schmidtjonathan.github.io/PhDSE.jl/dev/examples/solve_1d_heat_eq/), where you can also find **more examples**.
 
-## Allocate memory
+### Allocate memory
 In order to save time that would otherwise be necessary to allocate memory in the iterative algorithm, we do that once before the loop, and then **re-use** it.
 
 ```julia
@@ -100,7 +100,7 @@ fcache.μ .= μ₀
 fcache.Σ .= Σ₀
 ```
 
-## Finally, run the algorithm ...
+### Finally, run the algorithm ...
 
 ```julia
 for (i, t) in enumerate(t_0:dt:t_max)
@@ -120,7 +120,7 @@ for (i, t) in enumerate(t_0:dt:t_max)
 end
 ```
 
-## ... and plot the results
+### ... and plot the results
 
 <details>
 <summary><b>Show code</b></summary>
