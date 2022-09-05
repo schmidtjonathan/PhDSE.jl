@@ -47,7 +47,7 @@ as described, e.g., [in this paper](https://proceedings.mlr.press/v151/kramer22a
 <details>
 <summary><b>Details ...</b></summary>
 
-can be found in, e.g., [this paper](https://proceedings.mlr.press/v162/kramer22b/kramer22b.pdf).
+...can be found in, e.g., [this paper](https://proceedings.mlr.press/v162/kramer22b/kramer22b.pdf).
 
 #### (Very) brief summary:
 * The **dynamics** come from a discretized integrated Brownian motion prior, which serves as a prior over the PDE solution and its first $q$ derivatives.
@@ -122,6 +122,9 @@ end
 
 ## ... and plot the results
 
+<details>
+<summary><b>Show code</b></summary>
+
 ```julia
 anim = @animate for (t, μ, σ) in sol
 	plot(
@@ -142,6 +145,8 @@ gif(
 	fps = 10,
 )
 ```
+
+</details>
 
 
 ![](https://github.com/schmidtjonathan/PhDSE.jl/blob/gh-pages/dev/examples/heat_eq_1d_example.gif)
