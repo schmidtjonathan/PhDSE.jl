@@ -4,6 +4,7 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://schmidtjonathan.github.io/PhDSE.jl/dev/)
 [![Build Status](https://github.com/schmidtjonathan/PhDSE.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/schmidtjonathan/PhDSE.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![codecov](https://codecov.io/gh/schmidtjonathan/PhDSE.jl/branch/main/graph/badge.svg?token=IIGAI706O1)](https://codecov.io/gh/schmidtjonathan/PhDSE.jl)
+[![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT)
 
 
 **PhDSE** stands for **P**robabilistic **h**igh-**D**imensional **S**tate **E**stimation. Its aim is to provide runtime- and memory-efficient implementations of inference algorithms in probabilistic state-space models - all implemented in [Julia](https://julialang.org).

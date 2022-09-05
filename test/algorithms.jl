@@ -6,7 +6,6 @@ using PSDMatrices
 
 using PhDSE
 
-
 @testset "Kalman filter" begin
     Random.seed!(1234)
 
@@ -44,7 +43,7 @@ end
     Q = Matrix(I(5) * 0.1)
 
     H = randn(3, 5)
-    r = randn(3,3)
+    r = randn(3, 3)
     R = (r' * r) .+ 1e-2 .* Matrix(I(3))
 
     y = [1.0, 2.0, 3.0]
@@ -76,5 +75,4 @@ end
 
     @test kf_cache.Σ ≈ Matrix(sqkf_cache.Σ)
     @test kf_cache.μ ≈ sqkf_cache.μ
-
 end
