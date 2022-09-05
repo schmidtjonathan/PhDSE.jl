@@ -51,38 +51,31 @@ as described, e.g., [in this paper](https://proceedings.mlr.press/v151/kramer22a
 
 ##### (Very) brief summary:
 * The **dynamics** come from a discretized integrated Brownian motion prior, which serves as a prior over the PDE solution and its first $q$ derivatives.
-* The **observation model** measures the deviation between the modelled first derivative and the evaluation of the ODE vector field at the modelled ODE solution.
+* The **observation model** measures the deviation between the modelled first derivative and the evaluation of the ODE vector field at the modelled ODE solution. If this deviation is zero (which we condition on (see `zero_data` below), then the model of the solution is a good candidate for the PDE solution.
 * The posterior is computed using an (extended) Kalman filter.
 
 </details>
 
 
 ```julia
-dx = 0.01
-x_grid = 0.0:dx:1.0
+dx = 0.01; x_grid = 0.0:dx:1.0  # spatial discretization
+d = length(x_grid); q = 1  # dimensions, num. of derivatives
+D = (q + 1) * d  # dimensionality of the state-space
+t_0, t_max = (0.0, 0.3); dt = 1e-3  # temporal discretization
 
-d = length(x_grid)
-q = 1
-D = (q + 1) * d
-
-t_0, t_max = (0.0, 0.3)
-dt = 1e-3
-
-Φ, Q = discrete_Brownian_motion(d, q, dt)
-
-proj0 = projectionmatrix(d, q, 0)
-proj1 = projectionmatrix(d, q, 1)
+Φ, Q = discrete_Brownian_motion(d, q, dt)  # prior
+proj0 = projectionmatrix(d, q, 0)  # | projection
+proj1 = projectionmatrix(d, q, 1)  # | matrices
 
 ν = 0.2
+# measurement model & Jacobian
 information_operator(u) = (proj1 * u) .- (ν .* Δ_1d(proj0 * u, dx))
 information_operator_jac(u) = ForwardDiff.jacobian(information_operator, u)
-
 R = 1e-10 * Matrix(I(d))
 
-
-u0 =  exp.(-100 .* (x_grid .- 0.5).^2)
-u0_dot = ν .* Δ_1d(u0, dx)
-U0 = intersperse([u0, u0_dot])
+u0 =  exp.(-100 .* (x_grid .- 0.5).^2)  # | initial
+u0_dot = ν .* Δ_1d(u0, dx)              # | conditions
+U0 = intersperse([u0, u0_dot])          # | (solution & deriv.)
 
 μ₀, Σ₀ = U0, 1e-10 .* Matrix(I(D))
 zero_data = zeros(d)
