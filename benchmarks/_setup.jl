@@ -1,7 +1,7 @@
 Random.seed!(1234)
 
 D = 5000
-d = 3000
+d = 5000
 @info "Setup" D d
 
 # Dummy dynamics
