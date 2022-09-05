@@ -9,6 +9,7 @@ Therefore, it is for now not registered as a Julia package, yet.
 
 If you feel like playing around with the package a bit then you can install it directly from GitHub like this:
 
-```julia-bash
-] add https://github.com/schmidtjonathan/PhDSE.jl.git
+```julia
+using Pkg
+Pkg.add(url="https://github.com/schmidtjonathan/PhDSE.jl.git")
 ```
