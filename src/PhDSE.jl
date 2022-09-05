@@ -1,5 +1,6 @@
 module PhDSE
 
+using GaussianDistributions
 using LinearAlgebra
 using PSDMatrices
 

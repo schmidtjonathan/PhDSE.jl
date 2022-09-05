@@ -4,6 +4,7 @@ authors = ["Jonathan Schmidt <jonathan.schmidt@uni-tuebingen.de> and contributor
 version = "0.1.0"
 
 [deps]
+GaussianDistributions = "43dcc890-d446-5863-8d1a-14597580bb8d"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PSDMatrices = "fe68d972-6fd8-4755-bdf0-97d4c54cefdc"
 
