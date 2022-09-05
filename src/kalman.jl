@@ -70,7 +70,7 @@ function kf_correct!(
     # Note: here, the K_cache still holds the cross covariance.
     # The computation is (Σ⁻H') / S <=> Σ⁻H'S⁻¹ <=> Σ⁻H'(HΣ⁻H' + R)⁻¹
     # (*1) Note 2: cholesky! overwrites the upper-triangular part of S
-    rdiv!(fcache.K_cache, cholesky!(Symmetric(fcache.S_cache, :U)))
+    rdiv!(fcache.K_cache, cholesky!(Symmetric(fcache.S_cache, :L)))
 
     # μ = μ⁻ + K * (y - ŷ)
     fcache.residual_cache .= y .- fcache.obs_cache
@@ -80,8 +80,8 @@ function kf_correct!(
     # Σ = Σ⁻ - K * S * K' = Σ⁻ - (KL)(KL)' = Σ⁻ - (UK')'(UK')
     # see (*1)
     copy!(fcache.Σ, fcache.Σ⁻)
-    mul!(fcache.correct_cache, UpperTriangular(fcache.S_cache), fcache.K_cache')
-    mul!(fcache.Σ, fcache.correct_cache', fcache.correct_cache, -1.0, 1.0)
+    mul!(fcache.correct_cache, fcache.K_cache, LowerTriangular(fcache.S_cache))
+    mul!(fcache.Σ, fcache.correct_cache, fcache.correct_cache', -1.0, 1.0)
 end
 
 export kf_predict!

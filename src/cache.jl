@@ -41,7 +41,7 @@ function KFCache(state_dim::Int64, measurement_dim::Int64)
         obs_cache = zeros(measurement_dim),
         S_cache = zeros(measurement_dim, measurement_dim),
         K_cache = zeros(state_dim, measurement_dim),
-        correct_cache = zeros(measurement_dim, state_dim),
+        correct_cache = zeros(state_dim, measurement_dim),
     )
 end
 
