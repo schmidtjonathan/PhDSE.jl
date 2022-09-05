@@ -32,21 +32,24 @@ We use a probabilistic numerical algorithm that is based on a Kalman filter to *
 
 <details>
 <summary><b>Details</b></summary>
+
 The equation is given as
 $$\frac{\partial u(t, x)}{\partial t} = \nu \Delta u(t, x) =: F(t, x),$$
 where $\Delta$ is the Laplace operator and $u(t, x)$ is the solution of our PDE.
 
 We discretize the spatial independent variable $x$ on a finite grid $\mathbb{X}$ and use a finite-difference scheme to discretize $\Delta$. That leaves us with an ODE to solve $$\frac{\mathrm{d} u(t)}{\mathrm{d}t} = F(t, \mathbb{X}),$$
 as described, e.g., [in this paper](https://proceedings.mlr.press/v151/kramer22a/kramer22a.pdf).
+
 </details>
 
 ## Build the state-space model...
 
 <details>
 <summary><b>Details ...</b></summary>
+
 can be found in, e.g., [this paper](https://proceedings.mlr.press/v162/kramer22b/kramer22b.pdf).
 
-(Very) brief summary:
+#### (Very) brief summary:
 * The **dynamics** come from a discretized integrated Brownian motion prior, which serves as a prior over the PDE solution and its first $q$ derivatives.
 * The **observation model** measures the deviation between the modelled first derivative and the evaluation of the ODE vector field at the modelled ODE solution.
 * The posterior is computed using an (extended) Kalman filter.
