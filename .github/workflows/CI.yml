@@ -38,7 +38,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
-          verbose: true
   docs:
     name: Documentation
     runs-on: ubuntu-latest
