@@ -88,43 +88,32 @@ export SqrtKFCache
 
 # ==== Ensemble Kalman filter
 
-Base.@kwdef struct EnKFCache{mT<:AbstractMatrix} <: AbstractAlgCache
+Base.@kwdef struct EnKFCache{dT,mT<:AbstractMatrix} <: AbstractAlgCache
     #=
     D : state dimension
     d : measurement dimension
     N : ensemble size
     =#
 
+    process_noise_dist::dT
+    observation_noise_dist::dT
+
     ensemble::mT                # D x N
     forecast_ensemble::mT       # D x N
-    forecast_perturb::mT        # D x N
-    measure_perturb::mT         # d x N
-    HX::mT                      # d x N
-    e_N1::mT                    # N x 1
-    e_1N::mT                    # 1 x N
-    z::mT                       # d x N x 1
-    HA::mT                      # d x 1 x N
-    Y::mT                       # d x N
-    Q::mT                       # N x d x d      # TODO not sure if the last d is correct
-    Z::mT                       # N x d x N
-    W::mT                       # N x N
-    M::mT                       # d x N x N
 end
 
-function EnKFCache(state_dim::Int64, measurement_dim::Int64; ensemble_size::Int64)
+function EnKFCache(
+    state_dim::Int64,
+    measurement_dim::Int64;
+    ensemble_size::Int64,
+    process_noise_dist::Gaussian,
+    observation_noise_dist::Gaussian
+)
     return EnKFCache(
+        process_noise_dist = process_noise_dist,
+        observation_noise_dist = observation_noise_dist,
         ensemble = zeros(state_dim, ensemble_size),
         forecast_ensemble = zeros(state_dim, ensemble_size),
-        HX = zeros(measurement_dim, ensemble_size),
-        e_N1 = ones(ensemble_size, 1),
-        e_1N = ones(1, ensemble_size),
-        z = zeros(measurement_dim, ensemble_size, 1),
-        HA = zeros(measurement_dim, 1, ensemble_size),
-        Y = zeros(measurement_dim, ensemble_size),
-        Q = zeros(ensemble_size, measurement_dim, measurement_dim),
-        Z = zeros(ensemble_size, measurement_dim, ensemble_size),
-        W = zeros(ensemble_size, ensemble_size),
-        M = zeros(measurement_dim, ensemble_size, ensemble_size),
     )
 end
 
