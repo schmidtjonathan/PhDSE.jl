@@ -5,7 +5,7 @@ From "Bayesian Filtering and Smoothing" [1], example 4.3.
 ```@example 1
 using LinearAlgebra
 using Random
-using GaussianDistributions
+using Distributions
 
 using Plots
 
@@ -16,13 +16,13 @@ First, set up the state space model.
 
 ```@example 1
 function simulate(Φ, Q, u, H, R, v, μ₀, Σ₀, N; rng = Random.GLOBAL_RNG)
-    x = rand(rng, Gaussian(μ₀, Σ₀))
+    x = rand(rng, MvNormal(μ₀, Σ₀))
     states = [x]
     observations = []
 
     for i in 1:N
-        push!(states, rand(rng, Gaussian(Φ * states[end] + u, Q)))
-        push!(observations, rand(rng, Gaussian(H * states[end] + v, R)))
+        push!(states, rand(rng, MvNormal(Φ * states[end] + u, Q)))
+        push!(observations, rand(rng, MvNormal(H * states[end] + v, R)))
     end
     return states, observations
 end

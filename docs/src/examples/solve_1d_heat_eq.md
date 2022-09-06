@@ -3,7 +3,7 @@
 ```@example 1
 using LinearAlgebra
 using Random
-using GaussianDistributions
+using Distributions
 using ForwardDiff
 using ToeplitzMatrices
 
