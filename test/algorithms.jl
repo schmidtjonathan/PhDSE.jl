@@ -78,7 +78,6 @@ end
     @test kf_cache.μ ≈ sqkf_cache.μ
 end
 
-
 @testset "Ensemble Kalman filter (EnKF)" begin
     Random.seed!(1234)
 
@@ -102,15 +101,18 @@ end
     fcache = EnKFCache(
         D,
         d,
-        ensemble_size=N,
-        process_noise_dist=MvNormal(zeros(D), Q),
-        observation_noise_dist=MvNormal(zeros(d), R)
+        ensemble_size = N,
+        process_noise_dist = MvNormal(zeros(D), Q),
+        observation_noise_dist = MvNormal(zeros(d), R),
     )
     copy!(fcache.ensemble, init_ensemble)
     for y in artificial_data
         enkf_predict!(fcache, A)
         enkf_correct!(fcache, H, inv(R), y)
-        push!(sol, (PhDSE.ensemble_mean(fcache.ensemble), PhDSE.ensemble_cov(fcache.ensemble)))
+        push!(
+            sol,
+            (PhDSE.ensemble_mean(fcache.ensemble), PhDSE.ensemble_cov(fcache.ensemble)),
+        )
     end
 
     rmse = rmsd([m[1] for (m, S) in sol], gt)

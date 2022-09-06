@@ -4,16 +4,13 @@ function ensemble_mean(X)
     return (X * e_N1) ./ N
 end
 
-
 function ensemble_cov(X)
     D, N = size(X)
     A = X - ensemble_mean(X) * ones(1, N)
     return A * A' / (N - 1)
 end
 
-
 function enkf_predict!(fcache::EnKFCache, Φ, u = missing)
-
     Distributions.rand!(fcache.process_noise_dist, fcache.forecast_ensemble)
     @simd for i in axes(fcache.forecast_ensemble, 2)
         fcache.forecast_ensemble[:, i] .+= Φ * fcache.ensemble[:, i]
@@ -22,8 +19,6 @@ function enkf_predict!(fcache::EnKFCache, Φ, u = missing)
         end
     end
 end
-
-
 
 function enkf_correct!(fcache::EnKFCache, H, R_inv, y, v = missing)
     D, N = size(fcache.forecast_ensemble)
@@ -49,9 +44,8 @@ function enkf_correct!(fcache::EnKFCache, H, R_inv, y, v = missing)
         end
     end
 
-
     mul!(fcache.HAt_x_Rinv, fcache.HA', R_inv)
-    rdiv!(mul!(fcache.Q, fcache.HAt_x_Rinv, fcache.HA), N-1)
+    rdiv!(mul!(fcache.Q, fcache.HAt_x_Rinv, fcache.HA), N - 1)
     # the loop adds a identity matrix
     @simd for i in axes(fcache.Q, 1)
         fcache.Q[i, i] += 1.0
@@ -67,7 +61,7 @@ function enkf_correct!(fcache::EnKFCache, H, R_inv, y, v = missing)
     fcache.residual .= fcache.perturbed_D .- fcache.HX
 
     copy!(fcache.ensemble, fcache.forecast_ensemble)
-    mul!(fcache.ensemble, fcache.AAAAH, fcache.residual, inv(N-1) , 1.0)
+    mul!(fcache.ensemble, fcache.AAAAH, fcache.residual, inv(N - 1), 1.0)
 end
 
 export enkf_predict!
