@@ -1,6 +1,6 @@
 function ensemble_mean(X)
     D, N = size(X)
-    e_N1 = ones(N, 1)
+    e_N1 = ones(N)
     return (X * e_N1) ./ N
 end
 
@@ -29,18 +29,46 @@ function enkf_correct!(fcache::EnKFCache, H, R_inv, y, v = missing)
     D, N = size(fcache.forecast_ensemble)
     d = size(H, 1)
 
-    by_N = 1.0 / N
-    by_Nm1 = 1.0 / (N - 1)
-    e_N1 = ones(N, 1)
-    e_1N = ones(1, N)
+    Distributions.rand!(fcache.observation_noise_dist, fcache.perturbed_D)
+    @simd for i in axes(fcache.perturbed_D, 2)
+        fcache.perturbed_D[:, i] .+= y
+    end
 
-    perturbed_D = y .+ rand(fcache.observation_noise_dist, N)
+    rdiv!(sum!(fcache.mX, fcache.forecast_ensemble), N) # mean
+    copy!(fcache.A, fcache.forecast_ensemble)
+    @simd for i in axes(fcache.A, 2)
+        fcache.A[:, i] .-= fcache.mX
+    end
 
-    X = fcache.forecast_ensemble
-    A = X - by_N * X * e_N1 * e_1N
-    HA = H * A
-    Q = I(N) + HA' * R_inv * by_Nm1 * HA
-    S_inv = R_inv * (I(d) - by_Nm1 * HA * (cholesky(Symmetric(Q)) \ (HA' * R_inv)))
-    m_new = X + by_Nm1 * A * HA' * S_inv * (perturbed_D - H * X)
-    copy!(fcache.ensemble, m_new)
+    @simd for i in axes(fcache.HX, 2)
+        mul!(view(fcache.HX, 1:d, i), H, view(fcache.forecast_ensemble, 1:D, i))
+        mul!(view(fcache.HA, 1:d, i), H, view(fcache.A, 1:D, i))
+        if !ismissing(v)
+            fcache.HX[:, i] .+= v
+            fcache.HA[:, i] .+= v
+        end
+    end
+
+
+    mul!(fcache.HAt_x_Rinv, fcache.HA', R_inv)
+    rdiv!(mul!(fcache.Q, fcache.HAt_x_Rinv, fcache.HA), N-1)
+    # the loop adds a identity matrix
+    @simd for i in axes(fcache.Q, 1)
+        fcache.Q[i, i] += 1.0
+    end
+    ldiv!(fcache.W, cholesky!(Symmetric(fcache.Q)), fcache.HAt_x_Rinv)
+    rdiv!(mul!(fcache.M, fcache.HA, fcache.W), 1 - N)
+    # the loop calculates I - M
+    @simd for i in axes(fcache.M, 1)
+        fcache.M[i, i] += 1.0
+    end
+    mul!(fcache.HAt_x_S_inv, fcache.HAt_x_Rinv, fcache.M)
+    mul!(fcache.AAAAH, fcache.A, fcache.HAt_x_S_inv)
+    fcache.residual .= fcache.perturbed_D .- fcache.HX
+
+    copy!(fcache.ensemble, fcache.forecast_ensemble)
+    mul!(fcache.ensemble, fcache.AAAAH, fcache.residual, inv(N-1) , 1.0)
 end
+
+export enkf_predict!
+export enkf_correct!

@@ -88,7 +88,7 @@ export SqrtKFCache
 
 # ==== Ensemble Kalman filter
 
-Base.@kwdef struct EnKFCache{dT,mT<:AbstractMatrix,vT<:AbstractVector} <: AbstractAlgCache
+Base.@kwdef struct EnKFCache{dT<:MultivariateDistribution,mT<:AbstractMatrix,vT<:AbstractVector} <: AbstractAlgCache
     #=
     D : state dimension
     d : measurement dimension
@@ -106,6 +106,14 @@ Base.@kwdef struct EnKFCache{dT,mT<:AbstractMatrix,vT<:AbstractVector} <: Abstra
     HX::mT                      # d x N
     HA::mT                      # d x N
     mX::vT                      # D
+
+    Q::mT                       # N x N
+    W::mT                       # N x d
+    M::mT                       # d x d
+    HAt_x_Rinv::mT              # N x d
+    HAt_x_S_inv::mT             # N x d
+    AAAAH::mT                   # D x d
+    residual::mT                # d x N
 end
 
 function EnKFCache(
@@ -124,7 +132,14 @@ function EnKFCache(
         A = zeros(state_dim, ensemble_size),
         HX = zeros(measurement_dim, ensemble_size),
         HA = zeros(measurement_dim, ensemble_size),
-        mX = zeros(state_dim)
+        mX = zeros(state_dim),
+        Q = zeros(ensemble_size, ensemble_size),
+        W = zeros(ensemble_size, measurement_dim),
+        M = zeros(measurement_dim, measurement_dim),
+        HAt_x_Rinv = zeros(ensemble_size, measurement_dim),
+        HAt_x_S_inv = zeros(ensemble_size, measurement_dim),
+        AAAAH = zeros(state_dim, measurement_dim),
+        residual = zeros(measurement_dim, ensemble_size),
     )
 end
 
