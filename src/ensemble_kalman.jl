@@ -11,9 +11,10 @@ function ensemble_cov(X)
 end
 
 function enkf_predict!(fcache::EnKFCache, Φ, u = missing)
+    D = size(fcache.forecast_ensemble, 1)
     Distributions.rand!(fcache.process_noise_dist, fcache.forecast_ensemble)
     for i in axes(fcache.forecast_ensemble, 2)
-        fcache.forecast_ensemble[:, i] .+= Φ * fcache.ensemble[:, i]
+        mul!(view(fcache.forecast_ensemble, 1:D, i), Φ, view(fcache.ensemble, 1:D, i), 1.0, 1.0)
         if !ismissing(u)
             fcache.forecast_ensemble[:, i] .+= u
         end
