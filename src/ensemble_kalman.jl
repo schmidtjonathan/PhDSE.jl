@@ -14,23 +14,13 @@ end
 
 function enkf_predict!(fcache::EnKFCache, Φ, u = missing)
 
-    # mul!(fcache.forecast_ensemble, Φ, fcache.ensemble)
-    # if !ismissing(u)
-    #     fcache.forecast_ensemble .+= u
-    # end
-
-    # # ToDo:  ALLOCATES -----------------------v
-    # mul!(fcache.forecast_perturb, chol_Q.L, randn(size(fcache.forecast_ensemble)))
-    # fcache.forecast_ensemble .+= fcache.forecast_perturb
-
-    D, N = size(fcache.ensemble)
-    m_new = Φ * fcache.ensemble
-    # if !ismissing(u)
-    #     m_new .+= u
-    # end
-    noise = rand(fcache.process_noise_dist, N)
-    m_new .+= noise
-    copy!(fcache.forecast_ensemble, m_new)
+    Distributions.rand!(fcache.process_noise_dist, fcache.forecast_ensemble)
+    @simd for i in axes(fcache.forecast_ensemble, 2)
+        fcache.forecast_ensemble[:, i] .+= Φ * fcache.ensemble[:, i]
+        if !ismissing(u)
+            fcache.forecast_ensemble[:, i] .+= u
+        end
+    end
 end
 
 
