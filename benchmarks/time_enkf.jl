@@ -15,9 +15,9 @@ Rinv = inv(R)
 fcache = EnKFCache(
     D,
     d,
-    ensemble_size=N,
-    process_noise_dist=MvNormal(zeros(D), Q),
-    observation_noise_dist=MvNormal(zeros(d), R),
+    ensemble_size = N,
+    process_noise_dist = MvNormal(zeros(D), Q),
+    observation_noise_dist = MvNormal(zeros(d), R),
 )
 init_ensemble = rand(MvNormal(μ₀, Σ₀), N)
 copy!(fcache.ensemble, init_ensemble)
