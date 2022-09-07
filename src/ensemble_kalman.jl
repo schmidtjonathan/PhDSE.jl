@@ -11,44 +11,28 @@ function ensemble_cov(X)
 end
 
 function enkf_predict!(fcache::EnKFCache, Φ, u = missing)
-    D = size(fcache.forecast_ensemble, 1)
     Distributions.rand!(fcache.process_noise_dist, fcache.forecast_ensemble)
-    @inbounds for i in axes(fcache.forecast_ensemble, 2)
-        mul!(
-            view(fcache.forecast_ensemble, 1:D, i),
-            Φ,
-            view(fcache.ensemble, 1:D, i),
-            1.0,
-            1.0,
-        )
-        if !ismissing(u)
-            fcache.forecast_ensemble[:, i] .+= u
-        end
+    mul!(fcache.forecast_ensemble, Φ, fcache.ensemble, 1.0, 1.0)
+    if !ismissing(u)
+        fcache.forecast_ensemble .+= u
     end
 end
 
 function enkf_correct!(fcache::EnKFCache, H, R_inv, y, v = missing)
     D, N = size(fcache.forecast_ensemble)
-    d = size(H, 1)
 
     Distributions.rand!(fcache.observation_noise_dist, fcache.perturbed_D)
-    @inbounds for i in axes(fcache.perturbed_D, 2)
-        fcache.perturbed_D[:, i] .+= y
-    end
+    fcache.perturbed_D .+= y
 
     rdiv!(sum!(fcache.mX, fcache.forecast_ensemble), N) # mean
     copy!(fcache.A, fcache.forecast_ensemble)
-    @inbounds for i in axes(fcache.A, 2)
-        fcache.A[:, i] .-= fcache.mX
-    end
+    fcache.A .-= fcache.mX
 
-    @inbounds for i in axes(fcache.HX, 2)
-        mul!(view(fcache.HX, 1:d, i), H, view(fcache.forecast_ensemble, 1:D, i))
-        mul!(view(fcache.HA, 1:d, i), H, view(fcache.A, 1:D, i))
-        if !ismissing(v)
-            fcache.HX[:, i] .+= v
-            fcache.HA[:, i] .+= v
-        end
+    mul!(fcache.HX, H, fcache.forecast_ensemble)
+    mul!(fcache.HA, H, fcache.A)
+    if !ismissing(v)
+        fcache.HX .+= v
+        fcache.HA .+= v
     end
 
     mul!(fcache.HAt_x_Rinv, fcache.HA', R_inv)

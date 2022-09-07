@@ -9,7 +9,7 @@ using PhDSE
 
 include("_setup.jl")
 
-N = 1000
+N = 500
 Rinv = inv(R)
 # Allocate memory
 fcache = EnKFCache(
