@@ -1,8 +1,13 @@
 module PhDSE
 
+using MKL
+
 using Distributions
 using LinearAlgebra
 using PSDMatrices
+
+
+@info "BLAS config" BLAS.get_config()
 
 include("cache.jl")
 
