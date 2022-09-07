@@ -13,7 +13,7 @@ end
 function enkf_predict!(fcache::EnKFCache, Φ, u = missing)
     D = size(fcache.forecast_ensemble, 1)
     Distributions.rand!(fcache.process_noise_dist, fcache.forecast_ensemble)
-    for i in axes(fcache.forecast_ensemble, 2)
+    @inbounds for i in axes(fcache.forecast_ensemble, 2)
         mul!(
             view(fcache.forecast_ensemble, 1:D, i),
             Φ,
@@ -32,17 +32,17 @@ function enkf_correct!(fcache::EnKFCache, H, R_inv, y, v = missing)
     d = size(H, 1)
 
     Distributions.rand!(fcache.observation_noise_dist, fcache.perturbed_D)
-    for i in axes(fcache.perturbed_D, 2)
+    @inbounds for i in axes(fcache.perturbed_D, 2)
         fcache.perturbed_D[:, i] .+= y
     end
 
     rdiv!(sum!(fcache.mX, fcache.forecast_ensemble), N) # mean
     copy!(fcache.A, fcache.forecast_ensemble)
-    for i in axes(fcache.A, 2)
+    @inbounds for i in axes(fcache.A, 2)
         fcache.A[:, i] .-= fcache.mX
     end
 
-    for i in axes(fcache.HX, 2)
+    @inbounds for i in axes(fcache.HX, 2)
         mul!(view(fcache.HX, 1:d, i), H, view(fcache.forecast_ensemble, 1:D, i))
         mul!(view(fcache.HA, 1:d, i), H, view(fcache.A, 1:D, i))
         if !ismissing(v)
@@ -54,13 +54,13 @@ function enkf_correct!(fcache::EnKFCache, H, R_inv, y, v = missing)
     mul!(fcache.HAt_x_Rinv, fcache.HA', R_inv)
     rdiv!(mul!(fcache.Q, fcache.HAt_x_Rinv, fcache.HA), N - 1)
     # the loop adds a identity matrix
-    for i in axes(fcache.Q, 1)
+    @inbounds for i in axes(fcache.Q, 1)
         fcache.Q[i, i] += 1.0
     end
     ldiv!(fcache.W, cholesky!(Symmetric(fcache.Q)), fcache.HAt_x_Rinv)
     rdiv!(mul!(fcache.M, fcache.HA, fcache.W), 1 - N)
     # the loop calculates I - M
-    for i in axes(fcache.M, 1)
+    @inbounds for i in axes(fcache.M, 1)
         fcache.M[i, i] += 1.0
     end
     mul!(fcache.HAt_x_S_inv, fcache.HAt_x_Rinv, fcache.M)
