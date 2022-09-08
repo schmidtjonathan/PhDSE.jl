@@ -1,15 +1,3 @@
-function ensemble_mean(X)
-    D, N = size(X)
-    e_N1 = ones(N)
-    return (X * e_N1) ./ N
-end
-
-function ensemble_cov(X)
-    D, N = size(X)
-    A = X - ensemble_mean(X) * ones(1, N)
-    return A * A' / (N - 1)
-end
-
 function enkf_predict!(fcache::EnKFCache, Φ, u = missing)
     Distributions.rand!(fcache.process_noise_dist, fcache.forecast_ensemble)
     mul!(fcache.forecast_ensemble, Φ, fcache.ensemble, 1.0, 1.0)

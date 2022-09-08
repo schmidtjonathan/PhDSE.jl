@@ -1,6 +1,7 @@
 using Test
 using LinearAlgebra
 using StatsBase
+using Statistics
 using Random
 using PSDMatrices
 using Distributions
@@ -111,7 +112,7 @@ end
         enkf_correct!(fcache, H, inv(R), y)
         push!(
             sol,
-            (PhDSE.ensemble_mean(fcache.ensemble), PhDSE.ensemble_cov(fcache.ensemble)),
+            (mean(eachcol(fcache.ensemble)), cov(fcache.ensemble, dims=2)),
         )
     end
 
