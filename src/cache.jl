@@ -116,7 +116,7 @@ Base.@kwdef struct EnKFCache{
     M::mT                       # d x d
     HAt_x_Rinv::mT              # N x d
     HAt_x_S_inv::mT             # N x d
-    AAAAH::mT                   # D x d
+    AHAt_x_Sinv::mT                   # D x d
     residual::mT                # d x N
 end
 
@@ -142,7 +142,7 @@ function EnKFCache(
         M = zeros(measurement_dim, measurement_dim),
         HAt_x_Rinv = zeros(ensemble_size, measurement_dim),
         HAt_x_S_inv = zeros(ensemble_size, measurement_dim),
-        AAAAH = zeros(state_dim, measurement_dim),
+        AHAt_x_Sinv = zeros(state_dim, measurement_dim),
         residual = zeros(measurement_dim, ensemble_size),
     )
 end
