@@ -82,7 +82,10 @@ plot!([y[1] for y in ground_truth], [y[2] for y in ground_truth], label="True Lo
 plot!(
     [y[1] for (y, s) in sol], [y[2] for (y, s) in sol],
     ribbon=(1.96 .* [s[1] for (y, s) in sol], 1.96 .* [s[2] for (y, s) in sol]),
-    label="Filter Estimate", linewidth=4, alpha=0.8
+    label="Filter Estimate",
+    linewidth=4,
+    alpha=0.8,
+    legend=:bottomright,
 )
 savefig("kalman_filter_example.svg")
 nothing # hide

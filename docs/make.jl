@@ -19,10 +19,12 @@ makedocs(;
         "Algorithms" => [
             "Kalman Filter" => "algorithms/kalman_filter.md",
             "Square-root Kalman filter" => "algorithms/sqrt_kalman_filter.md",
+            "Ensemble Kalman filter" => "algorithms/ensemble_kalman_filter.md",
         ],
         "Examples" => [
             "Kalman Filter" => "examples/kalman_filter.md",
             "Square-root Kalman Filter" => "examples/sqrt_kalman_filter.md",
+            "Ensemble Kalman Filter" => "examples/ensemble_kalman_filter.md",
             "Advanced: Solve PDE" => "examples/solve_1d_heat_eq.md",
         ],
     ],

@@ -1,4 +1,22 @@
-function enkf_predict!(fcache::EnKFCache, Φ, u = missing)
+"""
+    enkf_predict!(fcache, Φ, Q, [u])
+
+Prediction step in an Ensemble Kalman filter (EnKF).
+
+
+# Arguments
+- `fcache::EnKFCache`: a cache holding memory-heavy objects
+- `Φ::AbstractMatrix`: transition matrix, i.e. dynamics of the state space model
+- `u::AbstractVector` (optional): affine control input to the dynamics
+
+# References
+[1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter.
+"""
+function enkf_predict!(
+    fcache::EnKFCache,
+    Φ::AbstractMatrix,
+    u::Union{AbstractVector,Missing} = missing,
+)
     Distributions.rand!(fcache.process_noise_dist, fcache.forecast_ensemble)
     mul!(fcache.forecast_ensemble, Φ, fcache.ensemble, 1.0, 1.0)
     if !ismissing(u)
@@ -6,7 +24,28 @@ function enkf_predict!(fcache::EnKFCache, Φ, u = missing)
     end
 end
 
-function enkf_correct!(fcache::EnKFCache, H, R_inv, y, v = missing)
+"""
+    enkf_correct!(fcache, H, R_inv, y, [v])
+
+Correction step in an Ensemble Kalman filter (EnKF).
+
+# Arguments
+- `fcache::EnKFCache`: a cache holding memory-heavy objects
+- `H::AbstractMatrix`: measurement matrix of the state space model
+- `R_inv::AbstractMatrix`: *inverse of* the measurement noise covariance of the state space model
+- `y::AbstractVector`: a measurement (data point)
+- `v::AbstractVector` (optional): affine control input to the measurement
+
+# References
+[1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter.
+"""
+function enkf_correct!(
+    fcache::EnKFCache,
+    H::AbstractMatrix,
+    R_inv::AbstractMatrix,
+    y::AbstractVector,
+    v::Union{AbstractVector,Missing} = missing,
+)
     D, N = size(fcache.forecast_ensemble)
 
     Distributions.rand!(fcache.observation_noise_dist, fcache.perturbed_D)
