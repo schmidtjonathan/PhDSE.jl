@@ -25,7 +25,7 @@ copy!(fcache.Σ, sqrt_Σ₀)
 
 # Output
 _tstamp = Dates.format(now(), "yymmdd_HHMMSS")
-directory_name = mkpath(joinpath(@__DIR__, "benchres_kalman", _tstamp))
+directory_name = mkpath(joinpath(@__DIR__, "benchres_sqrt_kalman", _tstamp))
 @info "Saving output to" directory_name
 
 # BENCHMARK ...
@@ -54,7 +54,7 @@ println("\n")
 open(joinpath(directory_name, "bres_out.txt"), "w") do io
     println(io, "Benchmarks for prediction step\n\n")
     show(io, MIME"text/plain"(), bres_predict)
-    println(io, "\n\nBenchmarks for prediction step\n\n")
+    println(io, "\n\nBenchmarks for correction step\n\n")
     show(io, MIME"text/plain"(), bres_correct)
 end;
 
