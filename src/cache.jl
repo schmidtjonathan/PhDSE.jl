@@ -116,7 +116,7 @@ Base.@kwdef struct EnKFCache{
     M::mT                       # d x d
     HAt_x_Rinv::mT              # N x d
     HAt_x_S_inv::mT             # N x d
-    AHAt_x_Sinv::mT                   # D x d
+    AHAt_x_Sinv::mT             # D x d
     residual::mT                # d x N
 end
 

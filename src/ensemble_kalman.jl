@@ -46,7 +46,7 @@ function enkf_correct!(
     y::AbstractVector,
     v::Union{AbstractVector,Missing} = missing,
 )
-    D, N = size(fcache.forecast_ensemble)
+    N = size(fcache.forecast_ensemble, 2)
 
     Distributions.rand!(fcache.observation_noise_dist, fcache.perturbed_D)
     fcache.perturbed_D .+= y
