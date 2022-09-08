@@ -12,7 +12,7 @@ d = 3000
 N = 500
 
 include("_setup.jl")
-const Φ, Q, u, H, R, v, y, μ₀, Σ₀ = kalman_setup(D=D, d=d)
+const Φ, Q, u, H, R, v, y, μ₀, Σ₀ = kalman_setup(D = D, d = d)
 
 Rinv = inv(R)
 # Allocate memory

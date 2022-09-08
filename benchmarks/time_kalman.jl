@@ -10,7 +10,7 @@ D = 3000
 d = 3000
 
 include("_setup.jl")
-const Φ, Q, u, H, R, v, y, μ₀, Σ₀ = kalman_setup(D=D, d=d)
+const Φ, Q, u, H, R, v, y, μ₀, Σ₀ = kalman_setup(D = D, d = d)
 
 # Allocate memory
 fcache = KFCache(D, d)

@@ -112,7 +112,7 @@ end
         enkf_correct!(fcache, H, inv(R), y)
         push!(
             sol,
-            (mean(eachcol(fcache.ensemble)), cov(fcache.ensemble, dims=2)),
+            (mean(eachcol(fcache.ensemble)), cov(fcache.ensemble, dims = 2)),
         )
     end
 

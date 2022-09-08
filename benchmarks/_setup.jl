@@ -1,7 +1,5 @@
-function kalman_setup(;D, d)
-
+function kalman_setup(; D, d)
     Random.seed!(1234)
-
 
     # Dummy dynamics
     Φ = randn(D, D)
