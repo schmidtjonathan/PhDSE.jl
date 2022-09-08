@@ -1,7 +1,7 @@
 [deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
-GaussianDistributions = "43dcc890-d446-5863-8d1a-14597580bb8d"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PSDMatrices = "fe68d972-6fd8-4755-bdf0-97d4c54cefdc"
 PhDSE = "7ecd2ffa-f4c5-4dad-8846-8d8820c20168"

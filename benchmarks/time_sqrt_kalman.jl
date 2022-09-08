@@ -7,7 +7,13 @@ using BenchmarkTools
 
 using PhDSE
 
+D = 3000
+d = 3000
+N = 500
+
 include("_setup.jl")
+const Φ, Q, u, H, R, v, y, μ₀, Σ₀ = kalman_setup(D = D, d = d)
+
 sqrt_Q = PSDMatrix(cholesky(Q).U)
 sqrt_R = PSDMatrix(cholesky(R).U)
 sqrt_Σ₀ = PSDMatrix(cholesky(Σ₀).U)

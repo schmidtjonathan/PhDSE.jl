@@ -1,5 +1,6 @@
 using Random
 using LinearAlgebra
+using Distributions
 using Dates
 using Profile
 using BenchmarkTools
@@ -8,18 +9,26 @@ using PhDSE
 
 D = 3000
 d = 3000
+N = 500
 
 include("_setup.jl")
 const Φ, Q, u, H, R, v, y, μ₀, Σ₀ = kalman_setup(D = D, d = d)
 
+Rinv = inv(R)
 # Allocate memory
-fcache = KFCache(D, d)
-copy!(fcache.μ, μ₀)
-copy!(fcache.Σ, Σ₀)
+fcache = EnKFCache(
+    D,
+    d,
+    ensemble_size = N,
+    process_noise_dist = MvNormal(zeros(D), Q),
+    observation_noise_dist = MvNormal(zeros(d), R),
+)
+init_ensemble = rand(MvNormal(μ₀, Σ₀), N)
+copy!(fcache.ensemble, init_ensemble)
 
 # Output
 _tstamp = Dates.format(now(), "yymmdd_HHMMSS")
-directory_name = mkpath(joinpath(@__DIR__, "benchres_kalman", _tstamp))
+directory_name = mkpath(joinpath(@__DIR__, "benchres_enkf", _tstamp))
 @info "Saving output to" directory_name
 
 # BENCHMARK ...
@@ -27,10 +36,10 @@ directory_name = mkpath(joinpath(@__DIR__, "benchres_kalman", _tstamp))
 
 @info "Benchmark predict step"
 @info "--| precompile"
-kf_predict!(fcache, Φ, Q, u)
+enkf_predict!(fcache, Φ, u)
 @info "--| run benchmark"
 Profile.clear()
-bres_predict = @benchmark kf_predict!($fcache, $Φ, $Q, $u)
+bres_predict = @benchmark enkf_predict!($fcache, $Φ, $u)
 show(stdout, MIME"text/plain"(), bres_predict)
 println("\n")
 
@@ -38,10 +47,10 @@ println("\n")
 
 @info "Benchmark correct step"
 @info "--| precompile"
-kf_correct!(fcache, H, R, y, v)
+enkf_correct!(fcache, H, Rinv, y, v)
 @info "--| run benchmark"
 Profile.clear()
-bres_correct = @benchmark kf_correct!($fcache, $H, $R, $y, $v)
+bres_correct = @benchmark enkf_correct!($fcache, $H, $Rinv, $y, $v)
 show(stdout, MIME"text/plain"(), bres_correct)
 println("\n")
 

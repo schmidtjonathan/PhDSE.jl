@@ -1,4 +1,4 @@
-# Square-root Kalman filter for car tracking
+# Ensemble Kalman filter for car tracking
 
 From "Bayesian Filtering and Smoothing" [1], example 4.3.
 
@@ -6,7 +6,7 @@ From "Bayesian Filtering and Smoothing" [1], example 4.3.
 using LinearAlgebra
 using Random
 using Distributions
-using PSDMatrices
+using Statistics
 
 using Plots
 
@@ -43,17 +43,15 @@ Q = [q1*dt^3/3 0 q1*dt^2/2 0;
      q1*dt^2/2 0 q1*dt 0;
      0 q2*dt^2/2 0 q2*dt]
 
-sqrt_Q = PSDMatrix(cholesky(Q).U)
-
 H = [1 0 0 0; 0 1 0 0]
 
 d, D = size(H)
+N = 20
 
 R = [s1^2 0; 0 s2^2]
-sqrt_R = PSDMatrix(cholesky(R).U)
+R_inv = inv(R)
 
 μ₀, Σ₀ = zeros(D), 2 * Matrix(1e-5 * I, D, D)
-sqrt_Σ₀ = cholesky(Σ₀).U
 nothing # hide
 ```
 
@@ -68,13 +66,26 @@ Compute the filtering posterior.
 
 ```@example 1
 sol = [(μ₀, sqrt.(diag(Σ₀)))]
-fcache = SqrtKFCache(D, d)
-fcache.μ .= μ₀
-copy!(fcache.Σ.R, sqrt_Σ₀)
+fcache = EnKFCache(
+    D,
+    d,
+    ensemble_size = N,
+    process_noise_dist = MvNormal(zeros(D), Q),
+    observation_noise_dist = MvNormal(zeros(d), R),
+)
+init_ensemble = rand(MvNormal(μ₀, Σ₀), N)
+copy!(fcache.ensemble, init_ensemble)
+
 for y in data
-    sqrt_kf_predict!(fcache, A, sqrt_Q)
-    sqrt_kf_correct!(fcache, H, sqrt_R, y)
-    push!(sol, (copy(fcache.μ), sqrt.(diag(Matrix(fcache.Σ)))))
+    enkf_predict!(fcache, A)
+    enkf_correct!(fcache, H, R_inv, y)
+    push!(
+        sol,
+        (
+            mean(eachcol(fcache.ensemble)),
+            sqrt.(diag(cov(fcache.ensemble, dims=2))),
+        )
+    )
 end
 nothing # hide
 ```
@@ -92,11 +103,11 @@ plot!(
     alpha=0.8,
     legend=:bottomright,
 )
-savefig("sqrt_kalman_filter_example.svg")
+savefig("ensemble_kalman_filter_example.svg")
 nothing # hide
 ```
 
-![](sqrt_kalman_filter_example.svg)
+![](ensemble_kalman_filter_example.svg)
 
 
 ## References

@@ -3,7 +3,7 @@
 ```@example 1
 using LinearAlgebra
 using Random
-using GaussianDistributions
+using Distributions
 using ForwardDiff
 using ToeplitzMatrices
 
@@ -49,7 +49,7 @@ Compute the finite-differences-discretized Laplace operator in one dimension.
 """
 function Δ_1d(u, δx; bound_val=0.0)
 	Δu = copy(u)
-	@simd for i in 2:length(u)-1
+	for i in 2:length(u)-1
 		Δu[i] = (u[i+1] - 2u[i] + u[i-1]) / (δx^2)
 	end
 	return Δu
