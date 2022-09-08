@@ -54,7 +54,7 @@ println("\n")
 open(joinpath(directory_name, "bres_out.txt"), "w") do io
     println(io, "Benchmarks for prediction step\n\n")
     show(io, MIME"text/plain"(), bres_predict)
-    println(io, "\n\nBenchmarks for prediction step\n\n")
+    println(io, "\n\nBenchmarks for correction step\n\n")
     show(io, MIME"text/plain"(), bres_correct)
 end;
 
