@@ -13,7 +13,7 @@
 
 **PhDSE** stands for **P**robabilistic **h**igh-**D**imensional **S**tate **E**stimation. Its aim is to provide runtime- and memory-efficient implementations of inference algorithms in probabilistic state-space models - all implemented in [Julia](https://julialang.org).
 
-# Install
+## Install
 
 The package is in a very early phase of development and will likely be subject to significant changes in both the interface, as well as the inner workings.
 Therefore, it is for now not registered as a Julia package, yet.
@@ -31,7 +31,17 @@ or
 ] add https://github.com/schmidtjonathan/PhDSE.jl.git
 ```
 
-# Example
+## Algorithms
+
+#### Bayesian Filtering
+* [Kalman filter](https://schmidtjonathan.github.io/PhDSE.jl/dev/examples/kalman_filter/)
+* [Square-root Kalman filter](https://schmidtjonathan.github.io/PhDSE.jl/dev/examples/sqrt_kalman_filter/)
+* [Ensemble Kalman filter](https://schmidtjonathan.github.io/PhDSE.jl/dev/examples/ensemble_kalman_filter/)
+* More to follow :raised_hands:
+
+
+
+## Example
 
 ### Setting: Solving a partial differential equation (PDE)
 We use a probabilistic numerical algorithm that is based on a Kalman filter to *solve a partial differential equation* (PDE).
