@@ -10,6 +10,7 @@ MKL = "33e6dc65-8f57-5167-99aa-e5a354878fb2"
 PSDMatrices = "fe68d972-6fd8-4755-bdf0-97d4c54cefdc"
 
 [compat]
+MKL = "0.5"
 PSDMatrices = "0.4"
 julia = "1.7"
 
