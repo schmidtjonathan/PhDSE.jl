@@ -7,7 +7,7 @@
 [![Build Status](https://github.com/schmidtjonathan/PhDSE.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/schmidtjonathan/PhDSE.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![codecov](https://codecov.io/gh/schmidtjonathan/PhDSE.jl/branch/main/graph/badge.svg?token=IIGAI706O1)](https://codecov.io/gh/schmidtjonathan/PhDSE.jl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT)
-[![bench-shield](https://img.shields.io/badge/view-benchnmarks-blueviolet)](./benchmarks/README.md)
+[![bench-shield](https://img.shields.io/badge/view-benchmarks-blueviolet)](./benchmarks/README.md)
 
 </div>
 
