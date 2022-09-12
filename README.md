@@ -1,4 +1,4 @@
-# PhDSE
+# PhDSE.jl
 
 <div align="center">
 
