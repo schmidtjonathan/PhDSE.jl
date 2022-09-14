@@ -85,7 +85,6 @@ function enkf_correct!(
     mul!(fcache.ensemble, fcache.AHAt_x_Sinv, fcache.residual, inv(N - 1), 1.0)  # [D, d] x [d, N] -> O(DdN)
 end
 
-
 """
     omf_enkf_correct!(fcache, HX, HA, R_inv, y)
 
