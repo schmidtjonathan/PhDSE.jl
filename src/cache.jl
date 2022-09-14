@@ -87,12 +87,15 @@ export SqrtKFCache
 
 # ==== Ensemble Kalman filter
 
+abstract type AbstractEnKFCache <: AbstractAlgCache end
+export AbstractEnKFCache
+
 Base.@kwdef struct EnKFCache{
     dT1<:MultivariateDistribution,
     dT2<:MultivariateDistribution,
     mT<:AbstractMatrix,
     vT<:AbstractVector,
-} <: AbstractAlgCache
+} <: AbstractEnKFCache
     #=
     D : state dimension
     d : measurement dimension
@@ -149,12 +152,12 @@ end
 
 export EnKFCache
 
-Base.@kwdef struct EnKFCache2{
+Base.@kwdef struct OMFEnKFCache{
     dT1<:MultivariateDistribution,
     dT2<:MultivariateDistribution,
     mT<:AbstractMatrix,
     vT<:AbstractVector,
-} <: AbstractAlgCache
+} <: AbstractEnKFCache
     #=
     D : state dimension
     d : measurement dimension
@@ -178,14 +181,14 @@ Base.@kwdef struct EnKFCache2{
     DxN_cache01::mT              # D x N
 end
 
-function EnKFCache2(
+function OMFEnKFCache(
     state_dim::Int64,
     measurement_dim::Int64;
     ensemble_size::Int64,
     process_noise_dist::MvNormal,
     observation_noise_dist::MvNormal,
 )
-    return EnKFCache2(
+    return OMFEnKFCache(
         process_noise_dist = process_noise_dist,
         observation_noise_dist = observation_noise_dist,
         ensemble = zeros(state_dim, ensemble_size),
@@ -202,4 +205,4 @@ function EnKFCache2(
     )
 end
 
-export EnKFCache2
+export OMFEnKFCache

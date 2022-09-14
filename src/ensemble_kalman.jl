@@ -13,7 +13,7 @@ Prediction step in an Ensemble Kalman filter (EnKF).
 [1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter.
 """
 function enkf_predict!(
-    fcache::Union{EnKFCache,EnKFCache2},
+    fcache::AbstractEnKFCache,
     Φ::AbstractMatrix,
     u::Union{AbstractVector,Missing} = missing,
 )
@@ -85,8 +85,30 @@ function enkf_correct!(
     mul!(fcache.ensemble, fcache.AHAt_x_Sinv, fcache.residual, inv(N - 1), 1.0)  # [D, d] x [d, N] -> O(DdN)
 end
 
-function enkf_correct!(
-    fcache::EnKFCache2,
+
+"""
+    omf_enkf_correct!(fcache, HX, HA, R_inv, y)
+
+Correction step in an **o**bservation-**m**atrix-**f**ree (omf) Ensemble Kalman filter (EnKF),
+assuming that the observation matrix never has to be built.
+
+Instead, the products ``HX`` and ``HA = H\\cdot\\left(X^f - \\mathbb{E}\\left[X^f\\right]\\right)`` are pre-computed
+_outside_ of the correction function and ``HX`` and ``HA`` are passed to the correction function.
+Assuming `R_inv` is a `Diagonal` matrix and ``HX`` and ``HA`` are cheap to compute, this results in
+a correction cost that is **linear** in the {state,observation}-dimension.
+
+# Arguments
+- `fcache::EnKFCache`: a cache holding memory-heavy objects
+- `HX::AbstractMatrix`: measured forecast ensemble ``H\\cdot X^f + v`` (pre-compute!)
+- `HA::AbstractMatrix`: measured forecast ensemble ``H\\cdot \\left(X^f - \\mathbb{E}\\left[X^f\\right]\\right) + v`` (pre-compute!)
+- `R_inv::AbstractMatrix`: *inverse of* the measurement noise covariance of the state space model
+- `y::AbstractVector`: a measurement (data point)
+
+# References
+[1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter.
+"""
+function omf_enkf_correct!(
+    fcache::OMFEnKFCache,
     HX::AbstractMatrix,
     HA::AbstractMatrix,
     R_inv::Diagonal,
@@ -138,3 +160,4 @@ end
 
 export enkf_predict!
 export enkf_correct!
+export omf_enkf_correct!
