@@ -36,8 +36,9 @@ end
 
 Correction step in an Ensemble Kalman filter (EnKF).
 
-> Note:
-> Calls [`omf_enkf_correct!](@ref) intrinsically.
+> **Note:**
+>
+> Calls [`omf_enkf_correct!`](@ref) intrinsically.
 
 # Arguments
 - `fcache::EnKFCache`: a cache holding memory-heavy objects
@@ -76,7 +77,8 @@ _outside_ of the correction function and ``HX`` and ``HA`` are passed to the cor
 Assuming `R_inv` is a `Diagonal` matrix and ``HX`` and ``HA`` are cheap to compute, this results in
 a correction cost that is **linear** in the {state,observation}-dimension.
 
-> Note:
+> **Note:**
+>
 > ``HX`` and ``HA`` have to be stored in the `fcache` before calling this function!
 
 # Arguments
