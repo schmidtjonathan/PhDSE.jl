@@ -148,3 +148,58 @@ function EnKFCache(
 end
 
 export EnKFCache
+
+Base.@kwdef struct EnKFCache2{
+    dT1<:MultivariateDistribution,
+    dT2<:MultivariateDistribution,
+    mT<:AbstractMatrix,
+    vT<:AbstractVector,
+} <: AbstractAlgCache
+    #=
+    D : state dimension
+    d : measurement dimension
+    N : ensemble size
+    =#
+
+    process_noise_dist::dT1
+    observation_noise_dist::dT2
+
+    ensemble::mT                 # D x N
+    forecast_ensemble::mT        # D x N
+    mX::vT                       # D
+    A::mT                        # D x N
+
+    dxN_cache01::mT              # d x N
+    dxN_cache02::mT              # d x N
+    dxN_cache03::mT              # d x N
+    dxN_cache04::mT              # d x N
+    NxN_cache01::mT              # N x N
+    NxN_cache02::mT              # N x N
+    DxN_cache01::mT              # D x N
+end
+
+function EnKFCache2(
+    state_dim::Int64,
+    measurement_dim::Int64;
+    ensemble_size::Int64,
+    process_noise_dist::MvNormal,
+    observation_noise_dist::MvNormal,
+)
+    return EnKFCache2(
+        process_noise_dist = process_noise_dist,
+        observation_noise_dist = observation_noise_dist,
+        ensemble = zeros(state_dim, ensemble_size),
+        forecast_ensemble = zeros(state_dim, ensemble_size),
+        mX = zeros(state_dim),
+        A = zeros(state_dim, ensemble_size),
+        dxN_cache01 = zeros(measurement_dim, ensemble_size),
+        dxN_cache02 = zeros(measurement_dim, ensemble_size),
+        dxN_cache03 = zeros(measurement_dim, ensemble_size),
+        dxN_cache04 = zeros(measurement_dim, ensemble_size),
+        NxN_cache01 = zeros(ensemble_size, ensemble_size),
+        NxN_cache02 = zeros(ensemble_size, ensemble_size),
+        DxN_cache01 = zeros(state_dim, ensemble_size),
+    )
+end
+
+export EnKFCache2

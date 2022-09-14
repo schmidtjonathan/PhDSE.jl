@@ -13,15 +13,20 @@ Prediction step in an Ensemble Kalman filter (EnKF).
 [1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter.
 """
 function enkf_predict!(
-    fcache::EnKFCache,
+    fcache::Union{EnKFCache, EnKFCache2},
     Φ::AbstractMatrix,
     u::Union{AbstractVector,Missing} = missing,
 )
+    N = size(fcache.ensemble, 2)
     Distributions.rand!(fcache.process_noise_dist, fcache.forecast_ensemble)
     mul!(fcache.forecast_ensemble, Φ, fcache.ensemble, 1.0, 1.0)
     if !ismissing(u)
         fcache.forecast_ensemble .+= u
     end
+
+    rdiv!(sum!(fcache.mX, fcache.forecast_ensemble), N)
+    copy!(fcache.A, fcache.forecast_ensemble)
+    fcache.A .-= fcache.mX
 end
 
 """
@@ -51,10 +56,6 @@ function enkf_correct!(
     Distributions.rand!(fcache.observation_noise_dist, fcache.perturbed_D)
     fcache.perturbed_D .+= y
 
-    rdiv!(sum!(fcache.mX, fcache.forecast_ensemble), N) # mean
-    copy!(fcache.A, fcache.forecast_ensemble)
-    fcache.A .-= fcache.mX
-
     mul!(fcache.HX, H, fcache.forecast_ensemble)  # [d, D] x [D, N] -> O(dDN)
     mul!(fcache.HA, H, fcache.A)  # [d, D] x [D, N] -> O(dDN)
     if !ismissing(v)
@@ -81,6 +82,60 @@ function enkf_correct!(
     copy!(fcache.ensemble, fcache.forecast_ensemble)
     mul!(fcache.ensemble, fcache.AHAt_x_Sinv, fcache.residual, inv(N - 1), 1.0)  # [D, d] x [d, N] -> O(DdN)
 end
+
+
+
+function enkf_correct!(
+    fcache::EnKFCache2,
+    HX::AbstractMatrix,
+    HA::AbstractMatrix,
+    R_inv::Diagonal,
+    y::AbstractVector,
+)
+    N = size(fcache.forecast_ensemble, 2)
+    Nsub1 = N - 1
+
+    # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
+    Distributions.rand!(fcache.observation_noise_dist, fcache.dxN_cache01)
+    fcache.dxN_cache01 .+= y
+    fcache.dxN_cache01 .-= HX
+
+    # R⁻¹ (D - HX)
+    mul!(fcache.dxN_cache02, R_inv, fcache.dxN_cache01)
+
+    # (HA)' R⁻¹(D - HX)
+    mul!(fcache.NxN_cache01, HA', fcache.dxN_cache02)
+
+    # Q := I_N + (HA)'R⁻¹(HA) / (N-1)
+    #  -> R⁻¹(HA) / (N-1)
+    rdiv!(mul!(fcache.dxN_cache03, R_inv, HA), Nsub1)
+    #  -> (HA)'R⁻¹(HA) / (N-1)
+    mul!(fcache.NxN_cache02, HA', fcache.dxN_cache03) # That's Q without the added Identity matrix
+    #  -> I_N + (HA)'R⁻¹(HA) / (N-1)
+    @simd for i in axes(fcache.NxN_cache02, 1)
+        fcache.NxN_cache02[i, i] += 1.0
+    end # So that's Q now
+
+    # Q⁻¹ (HA)' R⁻¹(D - HX)                         /GETS OVERWRITTEN\
+    ldiv!(cholesky!(Symmetric(fcache.NxN_cache02)), fcache.NxN_cache01)
+
+    # K := (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
+    rdiv!(mul!(fcache.dxN_cache02, HA, fcache.NxN_cache01), Nsub1)
+
+    # (D - HX) - K
+    fcache.dxN_cache01 .-= fcache.dxN_cache02
+
+    # R⁻¹((D - HX) - K)
+    mul!(fcache.dxN_cache04, R_inv, fcache.dxN_cache01)
+
+    # (HA)' R⁻¹((D - HX) - K)
+    mul!(fcache.NxN_cache02, HA', fcache.dxN_cache04)
+
+    # Xᵃ = Xᶠ + A / (N-1) (HA)' R⁻¹((D - HX) - K)
+    copy!(fcache.ensemble, fcache.forecast_ensemble)
+    mul!(fcache.ensemble, rdiv!(fcache.A, Nsub1), fcache.NxN_cache02, 1.0, 1.0)
+   end
+
 
 export enkf_predict!
 export enkf_correct!
