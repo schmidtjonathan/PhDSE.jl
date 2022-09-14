@@ -87,15 +87,12 @@ export SqrtKFCache
 
 # ==== Ensemble Kalman filter
 
-abstract type AbstractEnKFCache <: AbstractAlgCache end
-export AbstractEnKFCache
-
 Base.@kwdef struct EnKFCache{
     dT1<:MultivariateDistribution,
     dT2<:MultivariateDistribution,
     mT<:AbstractMatrix,
     vT<:AbstractVector,
-} <: AbstractEnKFCache
+} <: AbstractAlgCache
     #=
     D : state dimension
     d : measurement dimension
@@ -105,22 +102,20 @@ Base.@kwdef struct EnKFCache{
     process_noise_dist::dT1
     observation_noise_dist::dT2
 
-    ensemble::mT                # D x N
-    forecast_ensemble::mT       # D x N
+    ensemble::mT                 # D x N
+    forecast_ensemble::mT        # D x N
+    mX::vT                       # D
+    A::mT                        # D x N
+    HX::mT                       # d x N
+    HA::mT                       # d x N
 
-    perturbed_D::mT             # d x N
-    A::mT                       # D x N
-    HX::mT                      # d x N
-    HA::mT                      # d x N
-    mX::vT                      # D
-
-    Q::mT                       # N x N
-    W::mT                       # N x d
-    M::mT                       # d x d
-    HAt_x_Rinv::mT              # N x d
-    HAt_x_S_inv::mT             # N x d
-    AHAt_x_Sinv::mT             # D x d
-    residual::mT                # d x N
+    dxN_cache01::mT              # d x N
+    dxN_cache02::mT              # d x N
+    dxN_cache03::mT              # d x N
+    dxN_cache04::mT              # d x N
+    NxN_cache01::mT              # N x N
+    NxN_cache02::mT              # N x N
+    DxN_cache01::mT              # D x N
 end
 
 function EnKFCache(
@@ -135,66 +130,10 @@ function EnKFCache(
         observation_noise_dist = observation_noise_dist,
         ensemble = zeros(state_dim, ensemble_size),
         forecast_ensemble = zeros(state_dim, ensemble_size),
-        perturbed_D = zeros(measurement_dim, ensemble_size),
+        mX = zeros(state_dim),
         A = zeros(state_dim, ensemble_size),
         HX = zeros(measurement_dim, ensemble_size),
         HA = zeros(measurement_dim, ensemble_size),
-        mX = zeros(state_dim),
-        Q = zeros(ensemble_size, ensemble_size),
-        W = zeros(ensemble_size, measurement_dim),
-        M = zeros(measurement_dim, measurement_dim),
-        HAt_x_Rinv = zeros(ensemble_size, measurement_dim),
-        HAt_x_S_inv = zeros(ensemble_size, measurement_dim),
-        AHAt_x_Sinv = zeros(state_dim, measurement_dim),
-        residual = zeros(measurement_dim, ensemble_size),
-    )
-end
-
-export EnKFCache
-
-Base.@kwdef struct OMFEnKFCache{
-    dT1<:MultivariateDistribution,
-    dT2<:MultivariateDistribution,
-    mT<:AbstractMatrix,
-    vT<:AbstractVector,
-} <: AbstractEnKFCache
-    #=
-    D : state dimension
-    d : measurement dimension
-    N : ensemble size
-    =#
-
-    process_noise_dist::dT1
-    observation_noise_dist::dT2
-
-    ensemble::mT                 # D x N
-    forecast_ensemble::mT        # D x N
-    mX::vT                       # D
-    A::mT                        # D x N
-
-    dxN_cache01::mT              # d x N
-    dxN_cache02::mT              # d x N
-    dxN_cache03::mT              # d x N
-    dxN_cache04::mT              # d x N
-    NxN_cache01::mT              # N x N
-    NxN_cache02::mT              # N x N
-    DxN_cache01::mT              # D x N
-end
-
-function OMFEnKFCache(
-    state_dim::Int64,
-    measurement_dim::Int64;
-    ensemble_size::Int64,
-    process_noise_dist::MvNormal,
-    observation_noise_dist::MvNormal,
-)
-    return OMFEnKFCache(
-        process_noise_dist = process_noise_dist,
-        observation_noise_dist = observation_noise_dist,
-        ensemble = zeros(state_dim, ensemble_size),
-        forecast_ensemble = zeros(state_dim, ensemble_size),
-        mX = zeros(state_dim),
-        A = zeros(state_dim, ensemble_size),
         dxN_cache01 = zeros(measurement_dim, ensemble_size),
         dxN_cache02 = zeros(measurement_dim, ensemble_size),
         dxN_cache03 = zeros(measurement_dim, ensemble_size),
@@ -205,4 +144,4 @@ function OMFEnKFCache(
     )
 end
 
-export OMFEnKFCache
+export EnKFCache
