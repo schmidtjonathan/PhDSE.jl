@@ -24,7 +24,9 @@ function enkf_predict!(
         fcache.forecast_ensemble .+= u
     end
 
+    # Compute sample mean of forecast ensemble
     rdiv!(sum!(fcache.mX, fcache.forecast_ensemble), N)
+    # Calculate zero-mean forecast ensemble by subtracting the mean
     copy!(fcache.A, fcache.forecast_ensemble)
     fcache.A .-= fcache.mX
 end
