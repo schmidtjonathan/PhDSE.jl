@@ -13,7 +13,7 @@ Prediction step in an Ensemble Kalman filter (EnKF).
 [1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter.
 """
 function enkf_predict!(
-    fcache::Union{EnKFCache, EnKFCache2},
+    fcache::Union{EnKFCache,EnKFCache2},
     Φ::AbstractMatrix,
     u::Union{AbstractVector,Missing} = missing,
 )
@@ -83,8 +83,6 @@ function enkf_correct!(
     mul!(fcache.ensemble, fcache.AHAt_x_Sinv, fcache.residual, inv(N - 1), 1.0)  # [D, d] x [d, N] -> O(DdN)
 end
 
-
-
 function enkf_correct!(
     fcache::EnKFCache2,
     HX::AbstractMatrix,
@@ -134,8 +132,7 @@ function enkf_correct!(
     # Xᵃ = Xᶠ + A / (N-1) (HA)' R⁻¹((D - HX) - K)
     copy!(fcache.ensemble, fcache.forecast_ensemble)
     mul!(fcache.ensemble, rdiv!(fcache.A, Nsub1), fcache.NxN_cache02, 1.0, 1.0)
-   end
-
+end
 
 export enkf_predict!
 export enkf_correct!
