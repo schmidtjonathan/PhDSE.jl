@@ -112,7 +112,7 @@ function enkf_correct!(
     #  -> (HA)'R⁻¹(HA) / (N-1)
     mul!(fcache.NxN_cache02, HA', fcache.dxN_cache03) # That's Q without the added Identity matrix
     #  -> I_N + (HA)'R⁻¹(HA) / (N-1)
-    @simd for i in axes(fcache.NxN_cache02, 1)
+    @inbounds @simd for i in 1:N
         fcache.NxN_cache02[i, i] += 1.0
     end # So that's Q now
 
