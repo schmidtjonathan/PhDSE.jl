@@ -1,4 +1,4 @@
-# PhDSE.jl
+# [PhDSE.jl ![stars-badge](https://img.shields.io/github/stars/schmidtjonathan/PhDSE.jl?style=social)](https://github.com/schmidtjonathan/PhDSE.jl)
 
 **PhDSE** stands for **P**robabilistic **h**igh-**D**imensional **S**tate **E**stimation. Its aim is to provide runtime- and memory-efficient implementations of inference algorithms in probabilistic state-space models - all implemented in [Julia](https://julialang.org).
 
