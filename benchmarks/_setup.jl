@@ -9,8 +9,7 @@ function kalman_setup(; D, d)
 
     # Dummy measurements
     H = randn(d, D)
-    _r_r = randn(d, d)
-    R = _r_r' * _r_r + diagm(0 => 1e-7 .* ones(d))
+    R = Diagonal(diagm(0 => randn(d) .^ 2))
     v = randn(d)
     y = randn(d)
 
