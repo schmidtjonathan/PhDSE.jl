@@ -118,7 +118,8 @@ function omf_enkf_correct!(
         fcache.NxN_cache02[i, i] += 1.0
     end # So that's Q now
 
-    # Q⁻¹ (HA)' R⁻¹(D - HX)                         /GETS OVERWRITTEN\
+    # Q⁻¹ (HA)' R⁻¹(D - HX)   /GETS OVERWRITTEN\   /GETS OVERWRITTEN\
+    #                        |   by cholesky!   | |     by ldiv!     |
     ldiv!(cholesky!(Symmetric(fcache.NxN_cache02)), fcache.NxN_cache01)
 
     # K := (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
