@@ -1,11 +1,17 @@
 # Benchmarks for algorithms in PhDSE.jl
 
 ## Specs
+
 ```
-bus            Motherboard
-memory         96KiB BIOS
-processor      Intel(R) Xeon(R) Gold 6226R CPU @ 2.90GHz
-memory         146GiB System Memory
+julia> versioninfo()
+Julia Version 1.8.1
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 8 × Intel(R) Xeon(R) Gold 6226R CPU @ 2.90GHz
+  WORD_SIZE: 64
+  LIBM: libopenlibm
+  LLVM: libLLVM-13.0.1 (ORCJIT, cascadelake)
+  Threads: 1 on 8 virtual cores
 ```
 
 ## Kalman filter
