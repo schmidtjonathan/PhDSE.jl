@@ -11,7 +11,7 @@ PSDMatrices = "fe68d972-6fd8-4755-bdf0-97d4c54cefdc"
 
 [compat]
 Distributions = "0.25"
-MKL = "0.5"
+MKL = "0.5, 0.6"
 PSDMatrices = "0.4"
 julia = "1.7"
 
