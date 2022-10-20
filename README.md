@@ -41,69 +41,62 @@ or
 
 
 
-## Example
+## Example: Car-tracking
 
-### Setting: Solving a partial differential equation (PDE)
-We use a probabilistic numerical algorithm that is based on a Kalman filter to *solve a partial differential equation* (PDE).
-
-<details>
-<summary><b>Details</b></summary>
-
-The equation is given as
-$$\frac{\partial u(t, x)}{\partial t} = \nu \Delta u(t, x) =: F(t, x),$$
-where $\Delta$ is the Laplace operator and $u(t, x)$ is the solution of our PDE.
-
-We discretize the spatial independent variable $x$ on a finite grid $\mathbb{X}$ and use a finite-difference scheme to discretize $\Delta$. That leaves us with an ODE to solve $$\frac{\mathrm{d} u(t)}{\mathrm{d}t} = F(t, \mathbb{X}),$$
-as described, e.g., [in this paper](https://proceedings.mlr.press/v151/kramer22a/kramer22a.pdf).
-
-</details>
-
+> Example adapted from the book "Bayesian Filtering and Smoothing" by Simo Särkkä.
 ### Build the state-space model...
 
 <details>
 <summary><b>Details ...</b></summary>
 
-...can be found in, e.g., [this paper](https://proceedings.mlr.press/v162/kramer22b/kramer22b.pdf).
-
-##### (Very) brief summary:
-* The **dynamics** come from a discretized integrated Brownian motion prior, which serves as a prior over the PDE solution and its first $q$ derivatives.
-* The **observation model** measures the deviation between the modelled first derivative and the evaluation of the ODE vector field at the modelled ODE solution. If this deviation is zero (which we condition on (see `zero_data` below), then the model of the solution is a good candidate for the PDE solution.
-* The posterior is computed using an (extended) Kalman filter.
+##### We define:
+* The **dynamics** tracking position and velocities, each in x- & y-position.
+* The **observation model** measures the position of the vehicle in x- & y-dimension
+* The posterior is computed using a Kalman filter.
 
 </details>
 
+##### Build the state-space model
 
 ```julia
-dx = 0.01; x_grid = 0.0:dx:1.0  # spatial discretization
-d = length(x_grid); q = 1  # dimensions, num. of derivatives
-D = (q + 1) * d  # dimensionality of the state-space
-t_0, t_max = (0.0, 0.3); dt = 1e-3  # temporal discretization
+dt = 0.1
+s1, s2 = 0.5, 0.5
+q1, q2 = 1, 1
 
-Φ, Q = discrete_Brownian_motion(d, q, dt)  # prior
-proj0 = projectionmatrix(d, q, 0)  # | projection
-proj1 = projectionmatrix(d, q, 1)  # | matrices
+A = [1 0 dt 0;
+     0 1 0 dt;
+     0 0 1 0;
+     0 0 0 1]
 
-ν = 0.2
-# measurement model & Jacobian
-information_operator(u) = (proj1 * u) .- (ν .* Δ_1d(proj0 * u, dx))
-information_operator_jac(u) = ForwardDiff.jacobian(information_operator, u)
-R = 1e-10 * Matrix(I(d))
+Q = [q1*dt^3/3 0 q1*dt^2/2 0;
+     0 q2*dt^3/3 0 q2*dt^2/2;
+     q1*dt^2/2 0 q1*dt 0;
+     0 q2*dt^2/2 0 q2*dt]
 
-u0 =  exp.(-100 .* (x_grid .- 0.5).^2)  # | initial
-u0_dot = ν .* Δ_1d(u0, dx)              # | conditions
-U0 = intersperse([u0, u0_dot])          # | (solution & deriv.)
+H = [1 0 0 0; 0 1 0 0]
 
-μ₀, Σ₀ = U0, 1e-10 .* Matrix(I(D))
-zero_data = zeros(d)
+d, D = size(H)
+
+R = [s1^2 0; 0 s2^2]
+
+μ₀, Σ₀ = zeros(D), 2 * Matrix(1e-5 * I, D, D)
 ```
 
-> :warning: To see the implementation of the auxiliary functions used above, [please have a look here](https://schmidtjonathan.github.io/PhDSE.jl/dev/examples/solve_1d_heat_eq/), where you can also find **more examples**.
+##### Generate data
+
+> The ground-truth trajectory, as well as the noisy observations come from an auxiliary function `simulate`ing the dynamics. [Please have a look here](https://schmidtjonathan.github.io/PhDSE.jl/dev/examples/kalman_filter/), where you can also find **more examples**.
+
+```julia
+ground_truth, data = simulate(A, Q, zeros(D), H, R, zeros(d), μ₀, Σ₀, 200, rng=MersenneTwister(3))
+```
 
 ### Allocate memory
 In order to save time that would otherwise be necessary to allocate memory in the iterative algorithm, we do that once before the loop, and then **re-use** it.
 
+> This is of course only really relevant for larger state spaces. Here, it's just used to teach the usage.
+
 ```julia
-sol = [(t_0, copy(μ₀), copy(Σ₀))]
+sol = [(μ₀, sqrt.(diag(Σ₀)))]
 fcache = KFCache(D, d)
 fcache.μ .= μ₀
 fcache.Σ .= Σ₀
@@ -112,20 +105,10 @@ fcache.Σ .= Σ₀
 ### Finally, run the algorithm ...
 
 ```julia
-for (i, t) in enumerate(t_0:dt:t_max)
-    # predict
-    kf_predict!(fcache, Φ, Q)
-
-    # linearize observations
-    Hₜ = information_operator_jac(fcache.μ⁻)
-    vₜ = information_operator(fcache.μ⁻) - Hₜ * fcache.μ⁻
-
-    # measure
-    kf_correct!(fcache, Hₜ, R, zero_data, vₜ)
-
-    if i % 5 == 1
-        push!(sol, (t, copy(fcache.μ), copy(fcache.Σ)))
-    end
+for y in data
+    kf_predict!(fcache, A, Q)
+    kf_correct!(fcache, H, R, y)
+    push!(sol, (copy(fcache.μ), sqrt.(diag(fcache.Σ))))
 end
 ```
 
@@ -135,27 +118,18 @@ end
 <summary><b>Show code</b></summary>
 
 ```julia
-anim = @animate for (t, μ, σ) in sol
-	plot(
-        x_grid,
-        proj0 * μ,
-        ylim=(-0.05, 1.0),
-        linewidth=3,
-        ribbon=1.97 .* sqrt.(proj0 * diag(σ)),
-        label="u(t)",
-        title="t = $(round(t; digits=2))",
-    )
-end
-
-
-gif(
-	anim,
-	"heat_eq_1d_example.gif",
-	fps = 10,
+scatter([y[1] for y in data], [y[2] for y in data], label="Measurements", markersize=2)
+plot!([y[1] for y in ground_truth], [y[2] for y in ground_truth], label="True Location", linewidth=4, alpha=0.8)
+plot!(
+    [y[1] for (y, s) in sol], [y[2] for (y, s) in sol],
+    label="Filter Estimate",
+    linewidth=4,
+    alpha=0.8,
+    legend=:bottomright,
 )
 ```
 
 </details>
 
 
-![](https://github.com/schmidtjonathan/PhDSE.jl/blob/gh-pages/dev/examples/heat_eq_1d_example.gif)
+![](https://github.com/schmidtjonathan/PhDSE.jl/blob/gh-pages/dev/examples/kalman_filter_example.svg)
