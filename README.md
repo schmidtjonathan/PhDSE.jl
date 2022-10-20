@@ -43,7 +43,8 @@ or
 
 ## Example: Car-tracking
 
-> Example adapted from the book "Bayesian Filtering and Smoothing" by Simo Särkkä.
+> Example adapted from Example 4.3 in
+> S. Särkkä, Bayesian Filtering and Smoothing, 1st ed. Cambridge University Press, 2013.
 ### Build the state-space model...
 
 <details>
