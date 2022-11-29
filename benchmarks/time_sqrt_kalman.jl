@@ -1,6 +1,5 @@
 using Random
 using LinearAlgebra
-using PSDMatrices
 using Dates
 using Profile
 using BenchmarkTools
@@ -14,14 +13,12 @@ N = 500
 include("_setup.jl")
 const Φ, Q, u, H, R, v, y, μ₀, Σ₀ = kalman_setup(D = D, d = d)
 
-sqrt_Q = PSDMatrix(cholesky(Q).U)
-sqrt_R = PSDMatrix(cholesky(R).U)
-sqrt_Σ₀ = PSDMatrix(cholesky(Σ₀).U)
+sqrt_Q = cholesky(Q).U
+sqrt_R = cholesky(R).U
 
 # Allocate memory
 fcache = SqrtKFCache(D, d)
-copy!(fcache.μ, μ₀)
-copy!(fcache.Σ, sqrt_Σ₀)
+write_moments!(fcache; μ = μ₀, Σ = Σ₀)
 
 # Output
 _tstamp = Dates.format(now(), "yymmdd_HHMMSS")

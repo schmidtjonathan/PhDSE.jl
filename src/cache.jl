@@ -73,9 +73,9 @@ end
 function SqrtKFCache(state_dim::Int64, measurement_dim::Int64)
     return SqrtKFCache(
         μ⁻ = zeros(state_dim),
-        Σ⁻ = PSDMatrix(zeros(state_dim, state_dim)),
+        Σ⁻ = UpperTriangular(zeros(state_dim, state_dim)),
         μ = zeros(state_dim),
-        Σ = PSDMatrix(zeros(state_dim, state_dim)),
+        Σ = UpperTriangular(zeros(state_dim, state_dim)),
         cache_2DxD = zeros(2state_dim, state_dim),
         cache_dpDxdpD = zeros(state_dim + measurement_dim, state_dim + measurement_dim),
         zero_cache_dxD = zeros(measurement_dim, state_dim),
@@ -145,3 +145,50 @@ function EnKFCache(
 end
 
 export EnKFCache
+
+
+function write_moments!(cache::KFCache; μ = missing, Σ = missing)
+    if !ismissing(μ)
+        size(μ) == size(cache.μ) || error("Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.μ)).")
+        copy!(cache.μ, μ)
+    end
+    if !ismissing(Σ)
+        size(Σ) == size(cache.Σ) || error("Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.Σ)).")
+        copy!(cache.Σ, Σ)
+    end
+    return cache
+end
+
+function write_moments!(cache::SqrtKFCache; μ = missing, Σ = missing)
+    if !ismissing(μ)
+        size(μ) == size(cache.μ) || error("Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.μ)).")
+        copy!(cache.μ, μ)
+    end
+    if !ismissing(Σ)
+        size(Σ) == size(cache.Σ) || error("Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.Σ)).")
+        if Σ isa UpperTriangular
+            copy!(cache.Σ, Σ)
+        elseif Σ isa Matrix
+            U = cholesky(Σ).U
+            copy!(cache.Σ, U)
+        else
+            error("Cannot set covariance of type $(typeof(Σ)) in SqrtKFCache.")
+        end
+    end
+    return cache
+end
+
+function write_moments!(cache::EnKFCache; μ = missing, Σ = missing)
+    if ismissing(μ) || ismissing(Σ)
+        error("Need both μ and Σ to be provided to set ensemble in EnKFCache.")
+    end
+    size(μ) == (size(cache.ensemble, 1), ) || error("Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.ensemble)).")
+    size(Σ) == (size(cache.ensemble, 1), size(cache.ensemble, 1)) || error("Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.ensemble)).")
+    N = size(cache.ensemble, 2)
+    ens = rand(MvNormal(μ, Σ), N)
+    copy!(cache.ensemble, ens)
+    return cache
+end
+
+
+export write_moments!
