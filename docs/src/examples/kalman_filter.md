@@ -64,8 +64,8 @@ Compute the filtering posterior.
 ```@example 1
 sol = [(μ₀, sqrt.(diag(Σ₀)))]
 fcache = KFCache(D, d)
-fcache.μ .= μ₀
-fcache.Σ .= Σ₀
+write_moments!(fcache; μ = μ₀, Σ = Σ₀)
+
 for y in data
     kf_predict!(fcache, A, Q)
     kf_correct!(fcache, H, R, y)

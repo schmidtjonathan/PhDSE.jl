@@ -99,8 +99,7 @@ In order to save time that would otherwise be necessary to allocate memory in th
 ```julia
 sol = [(μ₀, sqrt.(diag(Σ₀)))]
 fcache = KFCache(D, d)
-fcache.μ .= μ₀
-fcache.Σ .= Σ₀
+write_moments!(fcache; μ = μ₀, Σ = Σ₀)
 ```
 
 ### Finally, run the algorithm ...
