@@ -9,7 +9,7 @@ Works entirely on matrix-square-roots of the covariance matrices.
 # Arguments
 - `fcache::SqrtKFCache`: a cache holding memory-heavy objects
 - `Φ::AbstractMatrix`: transition matrix, i.e. dynamics of the state space model
-- `Q::UpperTriangular`: **right** matrix square root of transition covariance, i.e. process noise of the state space model
+- `Q::RightMatrixSquareRoot`: **right** matrix square root of transition covariance, i.e. process noise of the state space model
 - `u::AbstractVector` (optional): affine control input to the dynamics
 
 # References
@@ -18,7 +18,7 @@ Works entirely on matrix-square-roots of the covariance matrices.
 function sqrt_kf_predict!(
     fcache::SqrtKFCache,
     Φ::AbstractMatrix,
-    Q::UpperTriangular,
+    Q::RightMatrixSquareRoot,
     u::Union{AbstractVector,Missing} = missing,
 )
     # predict mean
@@ -47,7 +47,7 @@ Works entirely on matrix-square-roots of the covariance matrices.
 - `fcache::SqrtKFCache`: a cache holding memory-heavy objects
 - `y::AbstractVector`: a measurement (data point)
 - `H::AbstractMatrix`: measurement matrix of the state space model
-- `R::UpperTriangular`: **right** matrix square root of measurement noise covariance of the state space model
+- `R::RightMatrixSquareRoot`: **right** matrix square root of measurement noise covariance of the state space model
 - `v::AbstractVector` (optional): affine control input to the measurement
 
 # References
@@ -57,7 +57,7 @@ Krämer, N., Bosch, N., Schmidt, J. & Hennig, P. (2022). Probabilistic ODE Solut
 function sqrt_kf_correct!(
     fcache::SqrtKFCache,
     H::AbstractMatrix,
-    R::UpperTriangular,
+    R::RightMatrixSquareRoot,
     y::AbstractVector,
     v::Union{AbstractVector,Missing} = missing,
 )

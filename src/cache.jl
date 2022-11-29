@@ -1,5 +1,9 @@
 abstract type AbstractAlgCache end
 
+RightMatrixSquareRoot = Union{Diagonal, UpperTriangular, UnitUpperTriangular, UniformScaling}
+export RightMatrixSquareRoot
+
+
 Base.@kwdef struct KFCache{vT<:AbstractVector,mT<:AbstractMatrix} <: AbstractAlgCache
     #=
         D : state dimension
@@ -173,7 +177,7 @@ function write_moments!(cache::SqrtKFCache; μ = missing, Σ = missing)
         size(Σ) == size(cache.Σ) || error(
             "Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.Σ)).",
         )
-        if Σ isa UpperTriangular
+        if Σ isa RightMatrixSquareRoot
             copy!(cache.Σ, Σ)
         elseif Σ isa Matrix
             U = cholesky(Σ).U
