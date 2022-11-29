@@ -3,7 +3,6 @@ using LinearAlgebra
 using StatsBase
 using Statistics
 using Random
-using PSDMatrices
 using Distributions
 
 using PhDSE
@@ -28,8 +27,8 @@ using PhDSE
 
     sol = [(copy(μ₀), copy(Σ₀))]
     fcache = KFCache(D, d)
-    fcache.μ .= μ₀
-    fcache.Σ .= Σ₀
+    write_moments!(fcache; μ = μ₀, Σ = Σ₀)
+
     for y in artificial_data
         kf_predict!(fcache, A, Q, u)
         kf_correct!(fcache, H, R, y, v)
@@ -56,30 +55,27 @@ end
 
     m0, C0 = randn(5), Matrix(I(5) * 0.07)
 
-    QU = PSDMatrix(cholesky(Q).U)
-    RU = PSDMatrix(cholesky(R).U)
-    C0U = PSDMatrix(cholesky(C0).U)
+    QU = cholesky(Q).U
+    RU = cholesky(R).U
 
     kf_cache = KFCache(5, 3)
-    kf_cache.μ .= m0
-    kf_cache.Σ .= C0
+    write_moments!(kf_cache; μ = m0, Σ = C0)
 
     sqkf_cache = SqrtKFCache(5, 3)
-    sqkf_cache.μ .= m0
-    copy!(sqkf_cache.Σ.R, C0U.R)
+    write_moments!(sqkf_cache; μ = m0, Σ = C0)
 
     # PREDICT
     kf_predict!(kf_cache, Φ, Q, u)
     sqrt_kf_predict!(sqkf_cache, Φ, QU, u)
 
     @test kf_cache.μ⁻ ≈ sqkf_cache.μ⁻
-    @test kf_cache.Σ⁻ ≈ Matrix(sqkf_cache.Σ⁻)
+    @test kf_cache.Σ⁻ ≈ sqkf_cache.Σ⁻' * sqkf_cache.Σ⁻
 
     # UPDATE
     kf_correct!(kf_cache, H, R, y, v)
     sqrt_kf_correct!(sqkf_cache, H, RU, y, v)
 
-    @test kf_cache.Σ ≈ Matrix(sqkf_cache.Σ)
+    @test kf_cache.Σ ≈ sqkf_cache.Σ' * sqkf_cache.Σ
     @test kf_cache.μ ≈ sqkf_cache.μ
 end
 
@@ -102,9 +98,7 @@ end
 
     # initial conditions
     μ₀, Σ₀ = gt[1] .* ones(1), 0.05 .* ones(1, 1)
-    init_ensemble = rand(MvNormal(μ₀, Σ₀), N)
 
-    sol = [(copy(μ₀), copy(Σ₀))]
     fcache = EnKFCache(
         D,
         d,
@@ -112,7 +106,9 @@ end
         process_noise_dist = MvNormal(zeros(D), Q),
         observation_noise_dist = MvNormal(zeros(d), R),
     )
-    copy!(fcache.ensemble, init_ensemble)
+    write_moments!(fcache; μ = μ₀, Σ = Σ₀)
+
+    sol = [(copy(μ₀), copy(Σ₀))]
     for y in artificial_data
         enkf_predict!(fcache, A, u)
         enkf_correct!(fcache, H, inv(R), y, v)

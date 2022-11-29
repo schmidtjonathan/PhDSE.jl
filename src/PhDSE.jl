@@ -4,7 +4,6 @@ using MKL
 
 using Distributions
 using LinearAlgebra
-using PSDMatrices
 
 include("cache.jl")
 

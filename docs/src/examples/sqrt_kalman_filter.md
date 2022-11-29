@@ -6,7 +6,6 @@ From "Bayesian Filtering and Smoothing" [1], example 4.3.
 using LinearAlgebra
 using Random
 using Distributions
-using PSDMatrices
 
 using Plots
 
@@ -43,17 +42,16 @@ Q = [q1*dt^3/3 0 q1*dt^2/2 0;
      q1*dt^2/2 0 q1*dt 0;
      0 q2*dt^2/2 0 q2*dt]
 
-sqrt_Q = PSDMatrix(cholesky(Q).U)
+sqrt_Q = cholesky(Q).U
 
 H = [1 0 0 0; 0 1 0 0]
 
 d, D = size(H)
 
 R = [s1^2 0; 0 s2^2]
-sqrt_R = PSDMatrix(cholesky(R).U)
+sqrt_R = cholesky(R).U
 
 μ₀, Σ₀ = zeros(D), 2 * Matrix(1e-5 * I, D, D)
-sqrt_Σ₀ = cholesky(Σ₀).U
 nothing # hide
 ```
 
@@ -69,8 +67,8 @@ Compute the filtering posterior.
 ```@example 1
 sol = [(μ₀, sqrt.(diag(Σ₀)))]
 fcache = SqrtKFCache(D, d)
-fcache.μ .= μ₀
-copy!(fcache.Σ.R, sqrt_Σ₀)
+write_moments!(fcache; μ = μ₀, Σ = Σ₀)
+
 for y in data
     sqrt_kf_predict!(fcache, A, sqrt_Q)
     sqrt_kf_correct!(fcache, H, sqrt_R, y)
