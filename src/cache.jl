@@ -1,8 +1,7 @@
 abstract type AbstractAlgCache end
 
-RightMatrixSquareRoot = Union{Diagonal, UpperTriangular, UnitUpperTriangular, UniformScaling}
+RightMatrixSquareRoot = Union{Diagonal,UpperTriangular,UnitUpperTriangular,UniformScaling}
 export RightMatrixSquareRoot
-
 
 Base.@kwdef struct KFCache{vT<:AbstractVector,mT<:AbstractMatrix} <: AbstractAlgCache
     #=
