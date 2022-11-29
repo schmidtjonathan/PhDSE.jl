@@ -146,14 +146,17 @@ end
 
 export EnKFCache
 
-
 function write_moments!(cache::KFCache; μ = missing, Σ = missing)
     if !ismissing(μ)
-        size(μ) == size(cache.μ) || error("Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.μ)).")
+        size(μ) == size(cache.μ) || error(
+            "Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.μ)).",
+        )
         copy!(cache.μ, μ)
     end
     if !ismissing(Σ)
-        size(Σ) == size(cache.Σ) || error("Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.Σ)).")
+        size(Σ) == size(cache.Σ) || error(
+            "Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.Σ)).",
+        )
         copy!(cache.Σ, Σ)
     end
     return cache
@@ -161,11 +164,15 @@ end
 
 function write_moments!(cache::SqrtKFCache; μ = missing, Σ = missing)
     if !ismissing(μ)
-        size(μ) == size(cache.μ) || error("Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.μ)).")
+        size(μ) == size(cache.μ) || error(
+            "Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.μ)).",
+        )
         copy!(cache.μ, μ)
     end
     if !ismissing(Σ)
-        size(Σ) == size(cache.Σ) || error("Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.Σ)).")
+        size(Σ) == size(cache.Σ) || error(
+            "Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.Σ)).",
+        )
         if Σ isa UpperTriangular
             copy!(cache.Σ, Σ)
         elseif Σ isa Matrix
@@ -182,13 +189,16 @@ function write_moments!(cache::EnKFCache; μ = missing, Σ = missing)
     if ismissing(μ) || ismissing(Σ)
         error("Need both μ and Σ to be provided to set ensemble in EnKFCache.")
     end
-    size(μ) == (size(cache.ensemble, 1), ) || error("Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.ensemble)).")
-    size(Σ) == (size(cache.ensemble, 1), size(cache.ensemble, 1)) || error("Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.ensemble)).")
+    size(μ) == (size(cache.ensemble, 1),) || error(
+        "Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.ensemble)).",
+    )
+    size(Σ) == (size(cache.ensemble, 1), size(cache.ensemble, 1)) || error(
+        "Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.ensemble)).",
+    )
     N = size(cache.ensemble, 2)
     ens = rand(MvNormal(μ, Σ), N)
     copy!(cache.ensemble, ens)
     return cache
 end
-
 
 export write_moments!
