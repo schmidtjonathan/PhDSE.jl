@@ -13,23 +13,50 @@ at the square-root Kalman filter at [`sqrt_kf_predict!`](@ref).
 - `u::AbstractVector` (optional): affine control input to the dynamics
 """
 function kf_predict!(
-    fcache::KFCache,
-    Φ::AbstractMatrix,
-    Q::AbstractMatrix,
-    u::Union{AbstractVector,Missing} = missing,
-)
+    c::FilteringCache,
+    Φ::AbstractMatrix{T},
+    Q::AbstractMatrix{T},
+    u::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    D = size(Φ, 1)
+    μ = get(c.entries, (Vector{T}, (D, ), "mean")) do
+        error("Cannot predict, no filtering mean in cache.")
+    end
+    Σ = get(c.entries, (Matrix{T}, (D, D), "covariance")) do
+        error("Cannot predict, no filtering covariance in cache.")
+    end
+    μ⁻ = get!(
+        c.entries,
+        (Vector{T}, (D, ), "predicted_mean"),
+        similar(μ)
+    )
+    Σ⁻ = get!(
+        c.entries,
+        (Matrix{T}, (D, D), "predicted_covariance"),
+        similar(Σ)
+    )
+
     # predict mean
     # μ⁻ = Φμ [+ u]
-    mul!(fcache.μ⁻, Φ, fcache.μ)
+    mul!(μ⁻, Φ, μ)
     if !ismissing(u)
-        fcache.μ⁻ .+= u
+        μ⁻ .+= u
     end
 
     # predict cov
     # Σ⁻ = ΦΣΦᵀ + Q
-    mul!(fcache.predict_cache, fcache.Σ, Φ')
-    mul!(fcache.Σ⁻, Φ, fcache.predict_cache)
-    fcache.Σ⁻ .+= Q
+    ΣΦᵀ = mul!(
+        get!(
+            c.entries,
+            (Matrix{T}, (D, D), "DxD_000"),
+            similar(Σ)
+        ),
+        Σ,
+        Φ'
+    )
+    mul!(Σ⁻, Φ, ΣΦᵀ)
+    Σ⁻ .+= Q
+    return μ⁻, Σ⁻
 end
 
 """
@@ -48,40 +75,71 @@ at the square-root Kalman filter at [`sqrt_kf_correct!`](@ref).
 - `v::AbstractVector` (optional): affine control input to the measurement
 """
 function kf_correct!(
-    fcache::KFCache,
-    H::AbstractMatrix,
-    R::AbstractMatrix,
-    y::AbstractVector,
-    v::Union{AbstractVector,Missing} = missing,
-)
+    c::FilteringCache,
+    H::AbstractMatrix{T},
+    R::AbstractMatrix{T},
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+
+    d, D = size(H)
+    μ⁻ = get(c.entries, (Vector{T}, (D, ), "predicted_mean")) do
+        error("Cannot correct, no predicted mean in cache.")
+    end
+    Σ⁻ = get(c.entries, (Matrix{T}, (D, D), "predicted_covariance")) do
+        error("Cannot correct, no predicted covariance in cache.")
+    end
+    μ = get!(
+        c.entries,
+        (Vector{T}, (D, ), "mean"),
+        similar(μ⁻)
+    )
+    Σ = get!(
+        c.entries,
+        (Matrix{T}, (D, D), "covariance"),
+        similar(Σ⁻)
+    )
+
     # measure
     # ̂y = Hμ⁻ [+ v]
-    mul!(fcache.obs_cache, H, fcache.μ⁻)
+    ŷ = mul!(
+        get!(c.entries, (Vector{T}, (d, ), "d_000"), similar(y)),
+        H,
+        μ⁻
+    )
     if !ismissing(v)
-        fcache.obs_cache .+= v
+        ŷ .+= v
     end
 
     # compute update equations
-    # Note: below we save the cross-covariance Σ⁻H' in the cache for the Kalman gain.
-    # They have the same shape and the cross-covariance is used to compute the Kalman gain.
-    mul!(fcache.K_cache, fcache.Σ⁻, H')
-    mul!(fcache.S_cache, H, fcache.K_cache)
-    fcache.S_cache .+= R
-    # Note: here, the K_cache still holds the cross covariance.
+    # Cross-covariance Σ⁻Hᵀ +++ [D, d]
+    cross_cov = get!(c.entries, (Matrix{T}, (D, d), "Dxd_000"), Matrix{T}(undef, D, d))
+    mul!(cross_cov, Σ⁻, H')
+    # innovation matrix HΣ⁻Hᵀ + R
+    S = get!(c.entries, (Matrix{T}, (d, d), "dxd_000"), Matrix{T}(undef, d, d))
+    mul!(S, H, cross_cov)
+    S .+= R
+
+    # Kalman gain K = Σ⁻Hᵀ(HΣ⁻Hᵀ + R)⁻¹
     # The computation is (Σ⁻H') / S <=> Σ⁻H'S⁻¹ <=> Σ⁻H'(HΣ⁻H' + R)⁻¹
-    # (*1) Note 2: cholesky! overwrites the upper-triangular part of S
-    rdiv!(fcache.K_cache, cholesky!(Symmetric(fcache.S_cache, :L)))
+    # Note: cholesky! overwrites S
+    # Note 2: we reuse the memory of the cross-covariance, since it's not needed anymore
+    K = cross_cov
+    rdiv!(K, cholesky!(Symmetric(S, :L)))
 
     # μ = μ⁻ + K * (y - ŷ)
-    fcache.residual_cache .= y .- fcache.obs_cache
-    mul!(fcache.μ, fcache.K_cache, fcache.residual_cache)
-    fcache.μ .+= fcache.μ⁻
+    residual = get!(c.entries, (Vector{T}, (d, ), "d_001"), similar(y))
+    copy!(residual, y)
+    residual .-= ŷ
+    mul!(μ, K, residual)
+    μ .+= μ⁻
 
     # Σ = Σ⁻ - K * S * K' = Σ⁻ - (KL)(KL)' = Σ⁻ - (UK')'(UK')
     # see (*1)
-    copy!(fcache.Σ, fcache.Σ⁻)
-    mul!(fcache.correct_cache, fcache.K_cache, LowerTriangular(fcache.S_cache))
-    mul!(fcache.Σ, fcache.correct_cache, fcache.correct_cache', -1.0, 1.0)
+    copy!(Σ, Σ⁻)
+    KLₛ = get!(c.entries, (Matrix{T}, (D, d), "Dxd_001"), similar(K))
+    mul!(KLₛ, K, LowerTriangular(S))
+    mul!(Σ, KLₛ, KLₛ', -1.0, 1.0)
 end
 
 export kf_predict!
