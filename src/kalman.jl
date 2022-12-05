@@ -13,7 +13,6 @@ function kf_predict(
     return μ⁻, Σ⁻
 end
 
-
 function kf_correct(
     μ⁻::AbstractVector{T},
     Σ⁻::AbstractMatrix{T},
@@ -33,7 +32,6 @@ function kf_correct(
     Σ = Σ⁻ - K * S * K'
     return μ, Σ
 end
-
 
 function kf_joseph_correct(
     μ⁻::AbstractVector{T},
@@ -57,11 +55,9 @@ function kf_joseph_correct(
     return μ, Σ
 end
 
-
 export kf_predict
 export kf_correct
 export kf_joseph_correct
-
 
 """
     kf_predict!(fcache, Φ, Q, [u])
@@ -84,7 +80,7 @@ function kf_predict!(
     u::Union{AbstractVector{T},Missing} = missing,
 ) where {T}
     D = size(Φ, 1)
-    μ = get(c.entries, (Vector{T}, (D, ), "mean")) do
+    μ = get(c.entries, (Vector{T}, (D,), "mean")) do
         error("Cannot predict, no filtering mean in cache.")
     end
     Σ = get(c.entries, (Matrix{T}, (D, D), "covariance")) do
@@ -92,13 +88,13 @@ function kf_predict!(
     end
     μ⁻ = get!(
         c.entries,
-        (Vector{T}, (D, ), "predicted_mean"),
-        similar(μ)
+        (Vector{T}, (D,), "predicted_mean"),
+        similar(μ),
     )
     Σ⁻ = get!(
         c.entries,
         (Matrix{T}, (D, D), "predicted_covariance"),
-        similar(Σ)
+        similar(Σ),
     )
 
     # predict mean
@@ -114,10 +110,10 @@ function kf_predict!(
         get!(
             c.entries,
             (Matrix{T}, (D, D), "DxD_000"),
-            similar(Σ)
+            similar(Σ),
         ),
         Σ,
-        Φ'
+        Φ',
     )
     mul!(Σ⁻, Φ, ΣΦᵀ)
     Σ⁻ .+= Q
@@ -146,9 +142,8 @@ function kf_correct!(
     y::AbstractVector{T},
     v::Union{AbstractVector{T},Missing} = missing,
 ) where {T}
-
     d, D = size(H)
-    μ⁻ = get(c.entries, (Vector{T}, (D, ), "predicted_mean")) do
+    μ⁻ = get(c.entries, (Vector{T}, (D,), "predicted_mean")) do
         error("Cannot correct, no predicted mean in cache.")
     end
     Σ⁻ = get(c.entries, (Matrix{T}, (D, D), "predicted_covariance")) do
@@ -156,21 +151,21 @@ function kf_correct!(
     end
     μ = get!(
         c.entries,
-        (Vector{T}, (D, ), "mean"),
-        similar(μ⁻)
+        (Vector{T}, (D,), "mean"),
+        similar(μ⁻),
     )
     Σ = get!(
         c.entries,
         (Matrix{T}, (D, D), "covariance"),
-        similar(Σ⁻)
+        similar(Σ⁻),
     )
 
     # measure
     # ̂y = Hμ⁻ [+ v]
     ŷ = mul!(
-        get!(c.entries, (Vector{T}, (d, ), "d_000"), similar(y)),
+        get!(c.entries, (Vector{T}, (d,), "d_000"), similar(y)),
         H,
-        μ⁻
+        μ⁻,
     )
     if !ismissing(v)
         ŷ .+= v
@@ -193,7 +188,7 @@ function kf_correct!(
     rdiv!(K, cholesky!(Symmetric(S, :L)))
 
     # μ = μ⁻ + K * (y - ŷ)
-    residual = get!(c.entries, (Vector{T}, (d, ), "d_001"), similar(y))
+    residual = get!(c.entries, (Vector{T}, (d,), "d_001"), similar(y))
     copy!(residual, y)
     residual .-= ŷ
     mul!(μ, K, residual)
