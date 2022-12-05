@@ -7,7 +7,7 @@ function kf_predict(
 ) where {T}
     μ⁻ = Φ * μ
     if !ismissing(u)
-        μ⁻ .+= u
+        μ⁻ += u
     end
     Σ⁻ = Φ * Σ * Φ + Q
     return μ⁻, Σ⁻
@@ -23,11 +23,11 @@ function kf_correct(
 ) where {T}
     ŷ = H * μ⁻
     if !ismissing(v)
-        ŷ .+= v
+        ŷ += v
     end
     cross_covariance = Σ⁻ * H'
-    S = H * cross_covariance + R
-    K = cross_covariance / Symmetric(S)
+    S = Symmetric(H * cross_covariance + R, :L)
+    K = cross_covariance / S
     μ = μ⁻ + K * (y - ŷ)
     Σ = Σ⁻ - K * S * K'
     return μ, Σ
@@ -44,11 +44,11 @@ function kf_joseph_correct(
     d, D = size(H)
     ŷ = H * μ⁻
     if !ismissing(v)
-        ŷ .+= v
+        ŷ += v
     end
     cross_covariance = Σ⁻ * H'
-    S = H * cross_covariance + R
-    K = cross_covariance / Symmetric(S)
+    S = Symmetric(H * cross_covariance + R, :L)
+    K = cross_covariance / S
     μ = μ⁻ + K * (y - ŷ)
     I_KH = I(D) - K * H
     Σ = I_KH * Σ⁻ * I_KH' + K * R * K'
@@ -200,6 +200,7 @@ function kf_correct!(
     KLₛ = get!(c.entries, (Matrix{T}, (D, d), "Dxd_001"), similar(K))
     mul!(KLₛ, K, LowerTriangular(S))
     mul!(Σ, KLₛ, KLₛ', -1.0, 1.0)
+    return μ, Σ
 end
 
 export kf_predict!
