@@ -1,3 +1,68 @@
+function kf_predict(
+    μ::AbstractVector{T},
+    Σ::AbstractMatrix{T},
+    Φ::AbstractMatrix{T},
+    Q::AbstractMatrix{T},
+    u::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    μ⁻ = Φ * μ
+    if !ismissing(u)
+        μ⁻ .+= u
+    end
+    Σ⁻ = Φ * Σ * Φ + Q
+    return μ⁻, Σ⁻
+end
+
+
+function kf_correct(
+    μ⁻::AbstractVector{T},
+    Σ⁻::AbstractMatrix{T},
+    H::AbstractMatrix{T},
+    R::AbstractMatrix{T},
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    ŷ = H * μ⁻
+    if !ismissing(v)
+        ŷ .+= v
+    end
+    cross_covariance = Σ⁻ * H'
+    S = H * cross_covariance + R
+    K = cross_covariance / Symmetric(S)
+    μ = μ⁻ + K * (y - ŷ)
+    Σ = Σ⁻ - K * S * K'
+    return μ, Σ
+end
+
+
+function kf_joseph_correct(
+    μ⁻::AbstractVector{T},
+    Σ⁻::AbstractMatrix{T},
+    H::AbstractMatrix{T},
+    R::AbstractMatrix{T},
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    d, D = size(H)
+    ŷ = H * μ⁻
+    if !ismissing(v)
+        ŷ .+= v
+    end
+    cross_covariance = Σ⁻ * H'
+    S = H * cross_covariance + R
+    K = cross_covariance / Symmetric(S)
+    μ = μ⁻ + K * (y - ŷ)
+    I_KH = I(D) - K * H
+    Σ = I_KH * Σ⁻ * I_KH' + K * R * K'
+    return μ, Σ
+end
+
+
+export kf_predict
+export kf_correct
+export kf_joseph_correct
+
+
 """
     kf_predict!(fcache, Φ, Q, [u])
 
