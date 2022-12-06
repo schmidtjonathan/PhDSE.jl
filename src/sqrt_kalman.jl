@@ -27,15 +27,14 @@ function sqrt_kf_correct(
     if !ismissing(v)
         ŷ += v
     end
-    X = UpperTriangular(qr(
-            [sqrt_Σ⁻ * H'  sqrt_Σ⁻
-             sqrt_R        zero(H)]
-        ).R
-    )
+    X = qr(
+        [sqrt_Σ⁻ * H'  sqrt_Σ⁻
+            sqrt_R        zero(H)]
+    ).R
     R₂₂ = X[d+1:end, d+1:end]
     R₁₂ = X[1:d, d+1:end]
-    R₁₁ = LowerTriangular(X[1:d, 1:d]')
-    μ = μ⁻ + R₁₂' * R₁₁ \ (y - ŷ)
+    R₁₁ = X[1:d, 1:d]
+    μ = μ⁻ + R₁₂' * (LowerTriangular(R₁₁') \ (y - ŷ))
     sqrt_Σ = UpperTriangular(R₂₂)
     return μ, sqrt_Σ
 end
