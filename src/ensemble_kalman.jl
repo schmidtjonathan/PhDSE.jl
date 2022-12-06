@@ -1,14 +1,33 @@
-ensemble_mean(ens::AbstractMatrix) = sum(ens, dims=2) / size(ens, 2)
+ensemble_mean(ens::AbstractMatrix) = vec(sum(ens, dims=2)) / size(ens, 2)
 centered_ensemble(ens::AbstractMatrix) = ens .- ensemble_mean(ens)
+function ensemble_cov(ens::AbstractMatrix)
+    A = centered_ensemble(ens)
+    N_sub_1 = size(ens, 2) - 1
+    return (A * A') / N_sub_1
+end
+function ensemble_mean_cov(ens::AbstractMatrix)
+    m = ensemble_mean(ens)
+    A = ens .- m
+    N_sub_1 = size(ens, 2) - 1
+    C = (A * A') / N_sub_1
+    return m, C
+end
+
+export ensemble_mean
+export centered_ensemble
+export ensemble_cov
+export ensemble_mean_cov
+
+# --
 
 function enkf_predict(
-    ensemble::AbstractMatrix{T}
+    ensemble::AbstractMatrix{T},
     Φ::AbstractMatrix{T},
     process_noise_dist::MvNormal,
     u::Union{AbstractVector{T},Missing} = missing,
 ) where {T}
     N = size(ensemble, 2)
-    forecast_ensemble = Φ * ensemble + Distributions.rand!(process_noise_dist, N)
+    forecast_ensemble = Φ * ensemble + rand(process_noise_dist, N)
     if !ismissing(u)
         forecast_ensemble .+= u
     end
@@ -102,6 +121,11 @@ function enkf_matrixfree_correct(
     ensemble = forecast_ensemble + DxN_term
     return ensemble
 end
+
+
+export enkf_predict
+export enkf_correct
+export enkf_matrixfree_correct
 
 
 """
