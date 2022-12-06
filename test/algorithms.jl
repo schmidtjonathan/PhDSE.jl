@@ -8,6 +8,8 @@ using ForwardDiff
 
 using PhDSE
 
+const PLOT_RESULTS = false
+
 
 function simulate_nonlinear(
     f::Function,
@@ -65,7 +67,7 @@ function filtering_setup()
     return μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations
 end
 
-@testset "Kalman filter" begin
+@testset "Kalman filter IIP vs. OOP" begin
     Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -75,10 +77,43 @@ end
     oop_m = copy(μ₀)
     iip_C = copy(Σ₀)
     oop_C = copy(Σ₀)
+    if PLOT_RESULTS
+        iip_traj = [(copy(μ₀), copy(Σ₀))]
+        oop_traj = [(copy(μ₀), copy(Σ₀))]
+    end
     for y in observations
         iip_m, iip_C = kf_predict!(cache, A(iip_m), Q(iip_m), u(iip_m))
         oop_m, oop_C = kf_predict(oop_m, oop_C, A(oop_m), Q(oop_m), u(oop_m))
-        # @show iip_m oop_m
+        @assert iip_m ≈ oop_m
+        @assert iip_C ≈ oop_C
+
+        iip_m, iip_C = kf_correct!(cache, H(iip_m), R(iip_m), y, v(iip_m))
+        oop_m, oop_C = kf_correct(oop_m, oop_C, H(oop_m), R(oop_m), y, v(oop_m))
+        @assert iip_m ≈ oop_m
+        @assert iip_C ≈ oop_C
+        if PLOT_RESULTS
+            push!(iip_traj, (copy(iip_m), copy(iip_C)))
+            push!(oop_traj, (copy(oop_m), copy(oop_C)))
+        end
+    end
+
+    if PLOT_RESULTS
+        iip_means = [m for (m, C) in iip_traj]
+        oop_means = [m for (m, C) in oop_traj]
+        iip_stds = [2sqrt.(diag(C)) for (m, C) in iip_traj]
+        oop_stds = [2sqrt.(diag(C)) for (m, C) in oop_traj]
+        using Plots
+        test_plot1 = scatter(1:length(observations), [o[1] for o in observations], color=1)
+        test_plot2 = scatter(1:length(observations), [o[2] for o in observations], color=2)
+        plot!(test_plot1, 1:length(iip_means), [m[1] for m in iip_means], ribbon=[s[1] for s in iip_stds], label="iip", color=3, lw=3)
+        plot!(test_plot2, 1:length(iip_means), [m[2] for m in iip_means], ribbon=[s[2] for s in iip_stds], label="iip", color=3, lw=3)
+        plot!(test_plot1, 1:length(oop_means), [m[1] for m in oop_means], ribbon=[s[1] for s in oop_stds], label="oop", color=4, lw=3)
+        plot!(test_plot2, 1:length(oop_means), [m[2] for m in oop_means], ribbon=[s[2] for s in oop_stds], label="oop", color=4, lw=3)
+        test_plot = plot(test_plot1, test_plot2, layout=(1, 2))
+        savefig(test_plot, joinpath(mkpath("./out/"), "kf_test_output.png"))
+    end
+end
+
         @assert iip_m ≈ oop_m
         @assert iip_C ≈ oop_C
 
