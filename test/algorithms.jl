@@ -64,48 +64,6 @@ function filtering_setup()
     return μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations
 end
 
-include("algorithms/kalman.jl")
-include("algorithms/sqrt_kalman.jl")
-
-# @testset "Ensemble Kalman filter (EnKF)" begin
-#     Random.seed!(1234)
-
-#     # dynamics
-#     A, Q = ones(1, 1), 0.01 .* ones(1, 1)
-#     u = 0.001 .* ones(1)
-
-#     # observations
-#     H, R = ones(1, 1), 0.025 .* I(1)
-#     v = 0.001 .* ones(1)
-#     d, D = size(H)
-
-#     gt = [sin(t / 10) for t in 1:100]
-#     artificial_data = [s .+ 0.05 .* randn(1) for s in copy(gt)[2:end]]
-
-#     N = 25
-
-#     # initial conditions
-#     μ₀, Σ₀ = gt[1] .* ones(1), 0.05 .* ones(1, 1)
-
-#     fcache = EnKFCache(
-#         D,
-#         d,
-#         ensemble_size = N,
-#         process_noise_dist = MvNormal(zeros(D), Q),
-#         observation_noise_dist = MvNormal(zeros(d), R),
-#     )
-#     write_moments!(fcache; μ = μ₀, Σ = Σ₀)
-
-#     sol = [(copy(μ₀), copy(Σ₀))]
-#     for y in artificial_data
-#         enkf_predict!(fcache, A, u)
-#         enkf_correct!(fcache, H, inv(R), y, v)
-#         push!(
-#             sol,
-#             (mean(eachcol(fcache.ensemble)), cov(fcache.ensemble, dims = 2)),
-#         )
-#     end
-
-#     rmse = rmsd([m[1] for (m, S) in sol], gt)
-#     @test rmse < 0.1
-# end
+# include("algorithms/kalman.jl")
+# include("algorithms/sqrt_kalman.jl")
+include("algorithms/enkf.jl")
