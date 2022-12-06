@@ -66,7 +66,7 @@ const ENSEMBLE_SIZE = 1000
             1:length(enkf_means),
             [m[1] for m in enkf_means],
             ribbon = [s[1] for s in enkf_stds],
-            label = "iip",
+            label = "enkf",
             color = 3,
             lw = 3,
         )
@@ -75,7 +75,7 @@ const ENSEMBLE_SIZE = 1000
             1:length(enkf_means),
             [m[2] for m in enkf_means],
             ribbon = [s[2] for s in enkf_stds],
-            label = "iip",
+            label = "enkf",
             color = 3,
             lw = 3,
         )

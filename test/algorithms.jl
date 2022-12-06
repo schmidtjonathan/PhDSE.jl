@@ -8,7 +8,7 @@ using ForwardDiff
 
 using PhDSE
 
-const PLOT_RESULTS = true
+const PLOT_RESULTS = false
 
 function simulate_nonlinear(
     f::Function,
