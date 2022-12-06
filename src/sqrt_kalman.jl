@@ -13,7 +13,6 @@ function sqrt_kf_predict(
     return μ⁻, sqrt_Σ⁻
 end
 
-
 function sqrt_kf_correct(
     μ⁻::AbstractVector{T},
     sqrt_Σ⁻::UpperTriangular,
@@ -28,8 +27,8 @@ function sqrt_kf_correct(
         ŷ += v
     end
     X = qr(
-        [sqrt_Σ⁻ * H'  sqrt_Σ⁻
-            sqrt_R        zero(H)]
+        [sqrt_Σ⁻*H' sqrt_Σ⁻
+            sqrt_R zero(H)],
     ).R
     R₂₂ = X[d+1:end, d+1:end]
     R₁₂ = X[1:d, d+1:end]
@@ -41,7 +40,6 @@ end
 
 export sqrt_kf_predict
 export sqrt_kf_correct
-
 
 """
     sqrt_kf_predict!(fcache, Φ, Q, [u])
@@ -70,7 +68,7 @@ function sqrt_kf_predict!(
     μ = get(c.entries, (Vector{T}, (D,), "mean")) do
         error("Cannot predict, no filtering mean in cache.")
     end
-    sqrt_Σ = get(c.entries, (UpperTriangular{T, Matrix{T}}, (D, D), "covariance")) do
+    sqrt_Σ = get(c.entries, (UpperTriangular{T,Matrix{T}}, (D, D), "covariance")) do
         error("Cannot predict, no filtering covariance in cache.")
     end
     μ⁻ = get!(
@@ -80,7 +78,7 @@ function sqrt_kf_predict!(
     )
     sqrt_Σ⁻ = get!(
         c.entries,
-        (UpperTriangular{T, Matrix{T}}, (D, D), "predicted_covariance"),
+        (UpperTriangular{T,Matrix{T}}, (D, D), "predicted_covariance"),
         similar(sqrt_Σ),
     )
 
@@ -124,14 +122,14 @@ function sqrt_kf_correct!(
     y::AbstractVector{T},
     v::Union{AbstractVector{T},Missing} = missing,
 ) where {T}
-
     d, D = size(H)
     μ⁻ = get(c.entries, (Vector{T}, (D,), "predicted_mean")) do
         error("Cannot correct, no predicted mean in cache.")
     end
-    sqrt_Σ⁻ = get(c.entries, (UpperTriangular{T, Matrix{T}}, (D, D), "predicted_covariance")) do
-        error("Cannot correct, no predicted covariance in cache.")
-    end
+    sqrt_Σ⁻ =
+        get(c.entries, (UpperTriangular{T,Matrix{T}}, (D, D), "predicted_covariance")) do
+            error("Cannot correct, no predicted covariance in cache.")
+        end
     μ = get!(
         c.entries,
         (Vector{T}, (D,), "mean"),
@@ -139,7 +137,7 @@ function sqrt_kf_correct!(
     )
     sqrt_Σ = get!(
         c.entries,
-        (UpperTriangular{T, Matrix{T}}, (D, D), "covariance"),
+        (UpperTriangular{T,Matrix{T}}, (D, D), "covariance"),
         similar(sqrt_Σ⁻),
     )
 
@@ -152,7 +150,11 @@ function sqrt_kf_correct!(
     end
 
     # Populate big block matrix
-    cache_dpDxdpD = get!(c.entries, (Matrix{T}, (d+D, d+D), "d+Dxd+D_000"), Matrix{T}(undef, d+D, d+D))
+    cache_dpDxdpD = get!(
+        c.entries,
+        (Matrix{T}, (d + D, d + D), "d+Dxd+D_000"),
+        Matrix{T}(undef, d + D, d + D),
+    )
     dxD_zero_mat = get!(c.entries, (Matrix{T}, (d, D), "dxD_zeros"), zero(H))
     # top left: sqrt(Σ⁻) * H'
     mul!(view(cache_dpDxdpD, 1:D, 1:d), sqrt_Σ⁻, H')

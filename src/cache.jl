@@ -37,7 +37,6 @@ end
 
 export FilteringCache
 
-
 # ==== Ensemble Kalman filter
 
 Base.@kwdef struct EnKFCache{
