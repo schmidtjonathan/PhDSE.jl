@@ -1,4 +1,4 @@
-ensemble_mean(ens::AbstractMatrix) = vec(sum(ens, dims=2)) / size(ens, 2)
+ensemble_mean(ens::AbstractMatrix) = vec(sum(ens, dims = 2)) / size(ens, 2)
 centered_ensemble(ens::AbstractMatrix) = ens .- ensemble_mean(ens)
 function ensemble_cov(ens::AbstractMatrix)
     A = centered_ensemble(ens)
@@ -40,7 +40,6 @@ function enkf_predict(
     return forecast_ensemble
 end
 
-
 function enkf_correct(
     forecast_ensemble::AbstractMatrix{T},
     H::AbstractMatrix{T},
@@ -64,7 +63,6 @@ function enkf_correct(
     ensemble = forecast_ensemble + K̂ * residual
     return ensemble
 end
-
 
 function enkf_matrixfree_correct(
     forecast_ensemble::AbstractMatrix{T},
@@ -122,11 +120,9 @@ function enkf_matrixfree_correct(
     return ensemble
 end
 
-
 export enkf_predict
 export enkf_correct
 export enkf_matrixfree_correct
-
 
 """
     enkf_predict!(fcache, Φ, Q, [u])

@@ -1,6 +1,5 @@
 const ENSEMBLE_SIZE = 1000
 
-
 @testset "Kalman filter (OOP) vs. standard EnKF (OOP)" begin
     Random.seed!(1234)
 
@@ -45,10 +44,12 @@ const ENSEMBLE_SIZE = 1000
     # end
 
     @test all([
-        isapprox(m1, m2; atol=0.1, rtol=0.1) for ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
+        isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
     ])
     @test all([
-        isapprox(C1, C2; atol=0.1, rtol=0.1) for ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
+        isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
     ])
 
     if PLOT_RESULTS
