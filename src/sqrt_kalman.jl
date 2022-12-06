@@ -1,3 +1,49 @@
+function sqrt_kf_predict(
+    μ::AbstractVector{T},
+    sqrt_Σ::UpperTriangular{T, AbstractMatrix{T}},
+    Φ::AbstractMatrix{T},
+    sqrt_Q::UpperTriangular{T, AbstractMatrix{T}},
+    u::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    μ⁻ = Φ * μ
+    if !ismissing(u)
+        μ⁻ += u
+    end
+    sqrt_Σ⁻ = UpperTriangular(qr([sqrt_Σ * Φ'; sqrt_Q]).R)
+    return μ⁻, sqrt_Σ⁻
+end
+
+
+function sqrt_kf_correct(
+    μ⁻::AbstractVector{T},
+    sqrt_Σ⁻::UpperTriangular{T, AbstractMatrix{T}},
+    H::AbstractMatrix{T},
+    sqrt_R::UpperTriangular{T, AbstractMatrix{T}},
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    d, D = size(H)
+    ŷ = H * μ⁻
+    if !ismissing(v)
+        ŷ += v
+    end
+    X = UpperTriangular(qr(
+            [sqrt_Σ⁻ * H'  sqrt_Σ⁻
+             sqrt_R        zero(H)]
+        ).R
+    )
+    R₂₂ = X[d+1:end, d+1:end]
+    R₁₂ = X[1:d, d+1:end]
+    R₁₁ = LowerTriangular(X[1:d, 1:d]')
+    μ = μ⁻ + R₁₂' * R₁₁ \ (y - ŷ)
+    sqrt_Σ = UpperTriangular(R₂₂)
+    return μ, sqrt_Σ
+end
+
+export sqrt_kf_predict
+export sqrt_kf_correct
+
+
 """
     sqrt_kf_predict!(fcache, Φ, Q, [u])
 
