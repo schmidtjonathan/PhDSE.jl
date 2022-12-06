@@ -9,7 +9,7 @@ function kf_predict(
     if !ismissing(u)
         μ⁻ += u
     end
-    Σ⁻ = Φ * Σ * Φ + Q
+    Σ⁻ = Φ * Σ * Φ' + Q
     return μ⁻, Σ⁻
 end
 
@@ -106,15 +106,8 @@ function kf_predict!(
 
     # predict cov
     # Σ⁻ = ΦΣΦᵀ + Q
-    ΣΦᵀ = mul!(
-        get!(
-            c.entries,
-            (Matrix{T}, (D, D), "DxD_000"),
-            similar(Σ),
-        ),
-        Σ,
-        Φ',
-    )
+    ΣΦᵀ = get!(c.entries, (Matrix{T}, (D, D), "DxD_000"), similar(Σ))
+    mul!(ΣΦᵀ, Σ, Φ')
     mul!(Σ⁻, Φ, ΣΦᵀ)
     Σ⁻ .+= Q
     return μ⁻, Σ⁻
@@ -162,11 +155,8 @@ function kf_correct!(
 
     # measure
     # ̂y = Hμ⁻ [+ v]
-    ŷ = mul!(
-        get!(c.entries, (Vector{T}, (d,), "d_000"), similar(y)),
-        H,
-        μ⁻,
-    )
+    ŷ = get!(c.entries, (Vector{T}, (d,), "d_000"), similar(y))
+    mul!(ŷ, H, μ⁻)
     if !ismissing(v)
         ŷ .+= v
     end
@@ -182,7 +172,7 @@ function kf_correct!(
 
     # Kalman gain K = Σ⁻Hᵀ(HΣ⁻Hᵀ + R)⁻¹
     # The computation is (Σ⁻H') / S <=> Σ⁻H'S⁻¹ <=> Σ⁻H'(HΣ⁻H' + R)⁻¹
-    # Note: cholesky! overwrites S
+    # Note: cholesky! overwrites the lower-triangular part of S
     # Note 2: we reuse the memory of the cross-covariance, since it's not needed anymore
     K = cross_cov
     rdiv!(K, cholesky!(Symmetric(S, :L)))
@@ -194,8 +184,7 @@ function kf_correct!(
     mul!(μ, K, residual)
     μ .+= μ⁻
 
-    # Σ = Σ⁻ - K * S * K' = Σ⁻ - (KL)(KL)' = Σ⁻ - (UK')'(UK')
-    # see (*1)
+    # Σ = Σ⁻ - K * S * K' = Σ⁻ - (KL)(KL)' = Σ⁻ - KLL'K'
     copy!(Σ, Σ⁻)
     KLₛ = get!(c.entries, (Matrix{T}, (D, d), "Dxd_001"), similar(K))
     mul!(KLₛ, K, LowerTriangular(S))
