@@ -1,8 +1,8 @@
 function sqrt_kf_predict(
     μ::AbstractVector{T},
-    sqrt_Σ::UpperTriangular{T, AbstractMatrix{T}},
+    sqrt_Σ::UpperTriangular,
     Φ::AbstractMatrix{T},
-    sqrt_Q::UpperTriangular{T, AbstractMatrix{T}},
+    sqrt_Q::UpperTriangular,
     u::Union{AbstractVector{T},Missing} = missing,
 ) where {T}
     μ⁻ = Φ * μ
@@ -16,9 +16,9 @@ end
 
 function sqrt_kf_correct(
     μ⁻::AbstractVector{T},
-    sqrt_Σ⁻::UpperTriangular{T, AbstractMatrix{T}},
+    sqrt_Σ⁻::UpperTriangular,
     H::AbstractMatrix{T},
-    sqrt_R::UpperTriangular{T, AbstractMatrix{T}},
+    sqrt_R::UpperTriangular,
     y::AbstractVector{T},
     v::Union{AbstractVector{T},Missing} = missing,
 ) where {T}
@@ -62,23 +62,41 @@ Works entirely on matrix-square-roots of the covariance matrices.
 [1] Krämer, N., & Hennig, P. (2020). Stable implementation of probabilistic ODE solvers.
 """
 function sqrt_kf_predict!(
-    fcache::SqrtKFCache,
-    Φ::AbstractMatrix,
-    Q::RightMatrixSquareRoot,
-    u::Union{AbstractVector,Missing} = missing,
-)
+    c::FilteringCache,
+    Φ::AbstractMatrix{T},
+    sqrt_Q::UpperTriangular,
+    u::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    D = size(Φ, 1)
+    μ = get(c.entries, (Vector{T}, (D,), "mean")) do
+        error("Cannot predict, no filtering mean in cache.")
+    end
+    sqrt_Σ = get(c.entries, (UpperTriangular{T, Matrix{T}}, (D, D), "covariance")) do
+        error("Cannot predict, no filtering covariance in cache.")
+    end
+    μ⁻ = get!(
+        c.entries,
+        (Vector{T}, (D,), "predicted_mean"),
+        similar(μ),
+    )
+    sqrt_Σ⁻ = get!(
+        c.entries,
+        (UpperTriangular{T, Matrix{T}}, (D, D), "predicted_covariance"),
+        similar(sqrt_Σ),
+    )
+
     # predict mean
-    mul!(fcache.μ⁻, Φ, fcache.μ)
+    mul!(μ⁻, Φ, μ)
     if !ismissing(u)
-        fcache.μ⁻ .+= u
+        μ⁻ .+= u
     end
 
     # predict cov
-    D = size(Q, 1)
-
-    mul!(view(fcache.cache_2DxD, 1:D, 1:D), fcache.Σ, Φ')
-    copy!(view(fcache.cache_2DxD, D+1:2D, 1:D), Q)
-    copy!(fcache.Σ⁻, qr!(fcache.cache_2DxD).R)
+    cache_2DxD = get!(c.entries, (Matrix{T}, (2D, D), "2DxD_000"), Matrix{T}(undef, 2D, D))
+    mul!(view(cache_2DxD, 1:D, 1:D), sqrt_Σ, Φ')
+    copy!(view(cache_2DxD, D+1:2D, 1:D), sqrt_Q)
+    copy!(sqrt_Σ⁻, qr!(cache_2DxD).R)
+    return μ⁻, sqrt_Σ⁻
 end
 
 """
@@ -101,45 +119,68 @@ Works entirely on matrix-square-roots of the covariance matrices.
 Krämer, N., Bosch, N., Schmidt, J. & Hennig, P. (2022). Probabilistic ODE Solutions in Millions of Dimensions.
 """
 function sqrt_kf_correct!(
-    fcache::SqrtKFCache,
-    H::AbstractMatrix,
-    R::RightMatrixSquareRoot,
-    y::AbstractVector,
-    v::Union{AbstractVector,Missing} = missing,
-)
+    c::FilteringCache,
+    H::AbstractMatrix{T},
+    sqrt_R::UpperTriangular,
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+
+    d, D = size(H)
+    μ⁻ = get(c.entries, (Vector{T}, (D,), "predicted_mean")) do
+        error("Cannot correct, no predicted mean in cache.")
+    end
+    sqrt_Σ⁻ = get(c.entries, (UpperTriangular{T, Matrix{T}}, (D, D), "predicted_covariance")) do
+        error("Cannot correct, no predicted covariance in cache.")
+    end
+    μ = get!(
+        c.entries,
+        (Vector{T}, (D,), "mean"),
+        similar(μ⁻),
+    )
+    sqrt_Σ = get!(
+        c.entries,
+        (UpperTriangular{T, Matrix{T}}, (D, D), "covariance"),
+        similar(sqrt_Σ⁻),
+    )
 
     # measure
     # ̂y = Hμ⁻ [+ v]
-    mul!(fcache.obs_cache, H, fcache.μ⁻)
+    ŷ = get!(c.entries, (Vector{T}, (d,), "d_000"), similar(y))
+    mul!(ŷ, H, μ⁻)
     if !ismissing(v)
-        fcache.obs_cache .+= v
+        ŷ .+= v
     end
 
-    d, D = size(H)
-
     # Populate big block matrix
+    cache_dpDxdpD = get!(c.entries, (Matrix{T}, (d+D, d+D), "d+Dxd+D_000"), Matrix{T}(undef, d+D, d+D))
+    dxD_zero_mat = get!(c.entries, (Matrix{T}, (d, D), "dxD_zeros"), zero(H))
     # top left: sqrt(Σ⁻) * H'
-    mul!(view(fcache.cache_dpDxdpD, 1:D, 1:d), fcache.Σ⁻, H')
+    mul!(view(cache_dpDxdpD, 1:D, 1:d), sqrt_Σ⁻, H')
     # top right: sqrt(Σ⁻)
-    copy!(view(fcache.cache_dpDxdpD, 1:D, d+1:d+D), fcache.Σ⁻)
+    copy!(view(cache_dpDxdpD, 1:D, d+1:d+D), sqrt_Σ⁻)
     # bottom left: sqrt(R)
-    copy!(view(fcache.cache_dpDxdpD, D+1:D+d, 1:d), R)
+    copy!(view(cache_dpDxdpD, D+1:D+d, 1:d), sqrt_R)
     # bottom right: 0_dxD
-    copy!(view(fcache.cache_dpDxdpD, D+1:D+d, d+1:d+D), fcache.zero_cache_dxD)
+    copy!(view(cache_dpDxdpD, D+1:D+d, d+1:d+D), dxD_zero_mat)
 
     # QR-decompose
-    QR_R = qr!(fcache.cache_dpDxdpD).R
+    QR_R = qr!(cache_dpDxdpD).R
 
     # Read out relevant matrices
     # √Σ = R₂₂
-    copy!(fcache.Σ, view(QR_R, d+1:d+D, d+1:d+D))
+    copy!(sqrt_Σ, view(QR_R, d+1:d+D, d+1:d+D))
     # μ = μ⁻ + R₁₂ᵀ⋅ (R₁₁)⁻⋅(y - ̂y)
+    residual = get!(c.entries, (Vector{T}, (d,), "d_001"), similar(y))
+    copy!(residual, y)
+    residual .-= ŷ
     mul!(
-        fcache.μ,
+        μ,
         view(QR_R, 1:d, d+1:d+D)',
-        ldiv!(LowerTriangular(view(QR_R, 1:d, 1:d)'), y .- fcache.obs_cache),
+        ldiv!(LowerTriangular(view(QR_R, 1:d, 1:d)'), residual),
     )
-    fcache.μ .+= fcache.μ⁻
+    μ .+= μ⁻
+    return μ, sqrt_Σ
 end
 
 export sqrt_kf_predict!
