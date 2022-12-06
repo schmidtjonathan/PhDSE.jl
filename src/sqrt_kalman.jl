@@ -1,10 +1,10 @@
 function sqrt_kf_predict(
     μ::AbstractVector{T},
-    sqrt_Σ::UpperTriangular,
+    sqrt_Σ::UpperTriangular{T,PT},
     Φ::AbstractMatrix{T},
-    sqrt_Q::UpperTriangular,
+    sqrt_Q::UpperTriangular{T,PT},
     u::Union{AbstractVector{T},Missing} = missing,
-) where {T}
+) where {T,PT<:AbstractMatrix}
     μ⁻ = Φ * μ
     if !ismissing(u)
         μ⁻ += u
@@ -15,12 +15,12 @@ end
 
 function sqrt_kf_correct(
     μ⁻::AbstractVector{T},
-    sqrt_Σ⁻::UpperTriangular,
+    sqrt_Σ⁻::UpperTriangular{T,PT},
     H::AbstractMatrix{T},
-    sqrt_R::UpperTriangular,
+    sqrt_R::UpperTriangular{T,PT},
     y::AbstractVector{T},
     v::Union{AbstractVector{T},Missing} = missing,
-) where {T}
+) where {T,PT<:AbstractMatrix}
     d, D = size(H)
     ŷ = H * μ⁻
     if !ismissing(v)
@@ -61,14 +61,14 @@ Works entirely on matrix-square-roots of the covariance matrices.
 function sqrt_kf_predict!(
     c::FilteringCache,
     Φ::AbstractMatrix{T},
-    sqrt_Q::UpperTriangular,
+    sqrt_Q::UpperTriangular{T,PT},
     u::Union{AbstractVector{T},Missing} = missing,
-) where {T}
+) where {T,PT<:AbstractMatrix}
     D = size(Φ, 1)
     μ = get(c.entries, (Vector{T}, (D,), "mean")) do
         error("Cannot predict, no filtering mean in cache.")
     end
-    sqrt_Σ = get(c.entries, (UpperTriangular{T,Matrix{T}}, (D, D), "covariance")) do
+    sqrt_Σ = get(c.entries, (UpperTriangular{T,PT}, (D, D), "covariance")) do
         error("Cannot predict, no filtering covariance in cache.")
     end
     μ⁻ = get!(
@@ -78,7 +78,7 @@ function sqrt_kf_predict!(
     )
     sqrt_Σ⁻ = get!(
         c.entries,
-        (UpperTriangular{T,Matrix{T}}, (D, D), "predicted_covariance"),
+        (UpperTriangular{T,PT}, (D, D), "predicted_covariance"),
         similar(sqrt_Σ),
     )
 
@@ -118,16 +118,16 @@ Krämer, N., Bosch, N., Schmidt, J. & Hennig, P. (2022). Probabilistic ODE Solut
 function sqrt_kf_correct!(
     c::FilteringCache,
     H::AbstractMatrix{T},
-    sqrt_R::UpperTriangular,
+    sqrt_R::UpperTriangular{T,PT},
     y::AbstractVector{T},
     v::Union{AbstractVector{T},Missing} = missing,
-) where {T}
+) where {T,PT<:AbstractMatrix}
     d, D = size(H)
     μ⁻ = get(c.entries, (Vector{T}, (D,), "predicted_mean")) do
         error("Cannot correct, no predicted mean in cache.")
     end
     sqrt_Σ⁻ =
-        get(c.entries, (UpperTriangular{T,Matrix{T}}, (D, D), "predicted_covariance")) do
+        get(c.entries, (UpperTriangular{T,PT}, (D, D), "predicted_covariance")) do
             error("Cannot correct, no predicted covariance in cache.")
         end
     μ = get!(
@@ -137,7 +137,7 @@ function sqrt_kf_correct!(
     )
     sqrt_Σ = get!(
         c.entries,
-        (UpperTriangular{T,Matrix{T}}, (D, D), "covariance"),
+        (UpperTriangular{T,PT}, (D, D), "covariance"),
         similar(sqrt_Σ⁻),
     )
 
