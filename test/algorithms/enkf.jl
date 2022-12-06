@@ -1,4 +1,4 @@
-const ENSEMBLE_SIZE = 100000
+const ENSEMBLE_SIZE = 1000
 
 
 @testset "Kalman filter (OOP) vs. standard EnKF (OOP)" begin
@@ -19,6 +19,7 @@ const ENSEMBLE_SIZE = 100000
     for y in observations
         kf_m, kf_C = kf_predict(kf_m, kf_C, A(kf_m), Q(kf_m), u(kf_m))
         ensemble = enkf_predict(
+            ensemble,
             A(enkf_m),
             process_noise_dist(enkf_m),
             u(enkf_m),
@@ -27,6 +28,7 @@ const ENSEMBLE_SIZE = 100000
 
         kf_m, kf_C = kf_correct(kf_m, kf_C, H(kf_m), R(kf_m), y, v(kf_m))
         ensemble = enkf_correct(
+            ensemble,
             H(enkf_m),
             measurement_noise_dist(enkf_m),
             y,
@@ -38,12 +40,16 @@ const ENSEMBLE_SIZE = 100000
         push!(enkf_traj, (copy(enkf_m), copy(enkf_C)))
     end
 
-    # @test all([
-    #     m1 ≈ m2 ≈ m3 for ((m1, C1), (m2, C2), (m3, C3)) in zip(kf_traj, enkf_traj, oop_traj)
-    # ])
-    # @test all([
-    #     C1 ≈ C2 ≈ C3 for ((m1, C1), (m2, C2), (m3, C3)) in zip(kf_traj, enkf_traj, oop_traj)
-    # ])
+    # for ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
+    #     println("$m1 vs. $m2")
+    # end
+
+    @test all([
+        isapprox(m1, m2; atol=0.1, rtol=0.1) for ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
+    ])
+    @test all([
+        isapprox(C1, C2; atol=0.1, rtol=0.1) for ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
+    ])
 
     if PLOT_RESULTS
         kf_means = [m for (m, C) in kf_traj]
@@ -59,16 +65,16 @@ const ENSEMBLE_SIZE = 100000
             test_plot1,
             1:length(enkf_means),
             [m[1] for m in enkf_means],
-            ribbon = [s[1] for s in iip_stds],
+            ribbon = [s[1] for s in enkf_stds],
             label = "iip",
             color = 3,
             lw = 3,
         )
         plot!(
             test_plot2,
-            1:length(iip_means),
-            [m[2] for m in iip_means],
-            ribbon = [s[2] for s in iip_stds],
+            1:length(enkf_means),
+            [m[2] for m in enkf_means],
+            ribbon = [s[2] for s in enkf_stds],
             label = "iip",
             color = 3,
             lw = 3,

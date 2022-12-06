@@ -64,6 +64,6 @@ function filtering_setup()
     return μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations
 end
 
-# include("algorithms/kalman.jl")
-# include("algorithms/sqrt_kalman.jl")
+include("algorithms/kalman.jl")
+include("algorithms/sqrt_kalman.jl")
 include("algorithms/enkf.jl")
