@@ -76,6 +76,9 @@
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
         savefig(test_plot, joinpath(mkpath("./out/"), "kf_test_output.png"))
     end
+    # for (k, v) in pairs(cache.entries)
+    #     println("$k -> $(typeof(v)) of size $(size(v))")
+    # end
 end
 
 @testset "Kalman update vs. Joseph update" begin
