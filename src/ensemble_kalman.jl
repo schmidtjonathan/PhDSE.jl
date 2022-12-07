@@ -18,6 +18,34 @@ export centered_ensemble
 export ensemble_cov
 export ensemble_mean_cov
 
+
+function ensemble_mean!(out_m::AbstractVector, ens::AbstractMatrix)
+    rdiv!(sum!(out_m, ens), size(ens, 2))
+    return out_m
+end
+function centered_ensemble!(out_ens::AbstractMatrix, out_m::AbstractVector, ens::AbstractMatrix)
+    out_m = ensemble_mean!(out_m, ens)
+    copy!(out_ens, ens)
+    out_ens .-= out_m
+    return out_ens
+end
+function ensemble_mean_cov!(
+    out_cov::AbstractMatrix,
+    out_ens::AbstractMatrix,
+    out_m::AbstractVector,
+    ens::AbstractMatrix
+)
+    A = centered_ensemble!(out_ens, out_m, ens)
+    N_sub_1 = size(ens, 2) - 1
+    rdiv!(mul!(out_cov, A, A'), N_sub_1)
+    return out_m, out_cov
+end
+
+
+export ensemble_mean!
+export centered_ensemble!
+export ensemble_mean_cov!
+
 # --
 
 function enkf_predict(
