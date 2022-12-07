@@ -214,7 +214,7 @@ function HX_HA!(
     c::FilteringCache,
     H::AbstractMatrix{T},
     v::Union{AbstractVector{T},Missing} = missing,
-)
+) where {T}
     d, D = size(H)
     N = get(c.entries, (typeof(D), size(D), "N")) do
         error("Ensemble size N is missing in FilteringCache.")
