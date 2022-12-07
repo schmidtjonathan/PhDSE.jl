@@ -112,7 +112,7 @@ function enkf_matrixfree_correct(
         # If N > d, use the standard approach instead, computing P,
         # instead of P⁻¹
         # @show measurement_noise_dist.Σ
-        P = Nsub1 \ Symmetric(HA * HA' + measurement_noise_dist.Σ, :L)
+        P = Symmetric(Nsub1 \ HA * HA' + measurement_noise_dist.Σ, :L)
 
         P_inv_times_res = P \ residual  # this is [d x d] * [d x N] -> [d x N]
     end
