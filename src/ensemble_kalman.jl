@@ -203,6 +203,64 @@ function enkf_predict!(
     return forecast_ensemble
 end
 
+
+function enkf_correct!(
+    c::FilteringCache,
+    H::AbstractMatrix{T},
+    measurement_noise_dist::MvNormal,
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    d, D = size(H)
+    N = get(c.entries, (typeof(D), size(D), "N")) do
+        error("Ensemble size N is missing in FilteringCache.")
+    end
+    Nsub1 = N - 1
+    forecast_ensemble = get(c.entries, (Matrix{T}, (D, N), "forecast_ensemble")) do
+        error("Cannot correct, no forecast ensemble in cache.")
+    end
+    ensemble = get!(
+        c.entries,
+        (typeof(forecast_ensemble), size(forecast_ensemble), "ensemble"),
+        similar(forecast_ensemble)
+    )
+    ens_mean = get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
+    A = get!(c.entries, (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble")) do
+        centered_ensemble!(similar(forecast_ensemble), ens_mean, forecast_ensemble)
+    end
+
+    HX = get!(c.entries, (Matrix{T}, (d, N), "HX"), Matrix{T}(undef, d, N))
+    # HA = get!(c.entries, (typeof(HX), size(HX), "HA"), similar(HX))
+    mul!(HX, H, forecast_ensemble)
+    if !ismissing(v)
+        HX .+= v
+    end
+    # centered_ensemble!(HA, ens_mean, HX)
+
+    # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
+    residual = get!(c.entries, (typeof(HX), size(HX), "residual"), similar(HX))
+    Distributions.rand!(observation_noise_dist, residual)
+    residual .+= y
+    residual .-= fcache.HX
+
+    C = get!(c.entries, (Matrix{T}, (d, d), "C"), Matrix{T}(undef, d, d))
+    rdiv!(mul!(C, A, A'), Nsub1)
+    cross_cov = get!(c.entries, (Matrix{T}, (D, d), "cross_cov"), Matrix{T}(undef, D, d))
+    mul!(cross_cov, C, H')
+    Ŝ = get!(c.entries, (Matrix{T}, (d, d), "Ŝ"), Matrix{T}(undef, d, d))
+    mul!(Ŝ, H, cross_cov)
+    Ŝ .+= measurement_noise_dist.Σ
+    K̂ = cross_cov
+    rdiv!(K̂, cholesky!(Symmetric(S, :L)))
+    mul!(ensemble, K̂, residual)
+    return ensemble
+end
+
+
+
+
+
+
 """
     enkf_correct!(fcache, H, R_inv, y, [v])
 
