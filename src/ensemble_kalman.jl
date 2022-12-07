@@ -82,7 +82,7 @@ function enkf_matrixfree_correct(
         A = centered_ensemble(forecast_ensemble)
     end
 
-    compute_P_inverse = (d > N) && !ismissing(R_inverse)
+    compute_P_inverse = !ismissing(R_inverse)
     if compute_P_inverse
         @info "Matrix inversion lemma"
         # Implementation from the paper/preprint by Mandel; Section 4.2
@@ -97,7 +97,7 @@ function enkf_matrixfree_correct(
         QT1 = (R_inverse / Nsub1) * HA
         #  -> (HA)'R⁻¹(HA) / (N-1)
         QT2 = HA' * QT1
-        Q = Symmetric(I(D) + QT2, :L)
+        Q = Symmetric(I(N) + QT2, :L)
         # Q⁻¹ (HA)' R⁻¹(D - HX)
         T3 = Q \ T2
         # (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
@@ -108,14 +108,13 @@ function enkf_matrixfree_correct(
 
         P_inv_times_res = R_inverse * T5  # this is [d x d] * [d x N] -> [d x N]
     else
-        # @info "Standard"
         # If N > d, use the standard approach instead, computing P,
         # instead of P⁻¹
-        # @show measurement_noise_dist.Σ
         P = Symmetric(Nsub1 \ HA * HA' + measurement_noise_dist.Σ, :L)
 
         P_inv_times_res = P \ residual  # this is [d x d] * [d x N] -> [d x N]
     end
+
     # Now we insert P⁻¹(D - HX) into Eq. (2.2) ; see Sec. 2
     # (HA)' P⁻¹(D - HX)
     NxN_term = HA' * P_inv_times_res  # this is [N x d] * [d x N] -> [N x N]
