@@ -204,6 +204,26 @@ function enkf_predict!(
 end
 
 
+function HX_HA!(c::FilteringCache, H::AbstractMatrix{T}, v::Union{AbstractVector{T},Missing} = missing)
+    d, D = size(H)
+    N = get(c.entries, (typeof(D), size(D), "N")) do
+        error("Ensemble size N is missing in FilteringCache.")
+    end
+    forecast_ensemble = get(c.entries, (Matrix{T}, (D, N), "forecast_ensemble")) do
+        error("Cannot compute HX/HA, no forecast ensemble in cache.")
+    end
+    HX = get!(c.entries, (Matrix{T}, (d, N), "HX"), Matrix{T}(undef, d, N))
+    HA = get!(c.entries, (typeof(HX), size(HX), "HA"), similar(HX))
+    mul!(HX, H, forecast_ensemble)
+    if !ismissing(v)
+        HX .+= v
+    end
+    ens_mean = get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
+    centered_ensemble!(HA, ens_mean, HX)
+    return HX, HA
+end
+
+
 function enkf_correct!(
     c::FilteringCache,
     H::AbstractMatrix{T},
@@ -229,17 +249,18 @@ function enkf_correct!(
         centered_ensemble!(similar(forecast_ensemble), ens_mean, forecast_ensemble)
     end
 
-    HX = get!(c.entries, (Matrix{T}, (d, N), "HX"), Matrix{T}(undef, d, N))
-    # HA = get!(c.entries, (typeof(HX), size(HX), "HA"), similar(HX))
-    mul!(HX, H, forecast_ensemble)
-    if !ismissing(v)
-        HX .+= v
-    end
-    # centered_ensemble!(HA, ens_mean, HX)
+    # HX = get!(c.entries, (Matrix{T}, (d, N), "HX"), Matrix{T}(undef, d, N))
+    # # HA = get!(c.entries, (typeof(HX), size(HX), "HA"), similar(HX))
+    # mul!(HX, H, forecast_ensemble)
+    # if !ismissing(v)
+    #     HX .+= v
+    # end
+    # # centered_ensemble!(HA, ens_mean, HX)
+    HX, HA = HX_HA!(c, H, v)
 
     # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
     residual = get!(c.entries, (typeof(HX), size(HX), "residual"), similar(HX))
-    Distributions.rand!(observation_noise_dist, residual)
+    Distributions.rand!(measurement_noise_dist, residual)
     residual .+= y
     residual .-= fcache.HX
 
@@ -257,118 +278,110 @@ function enkf_correct!(
 end
 
 
-
-
-
-
-"""
-    enkf_correct!(fcache, H, R_inv, y, [v])
-
-Correction step in an Ensemble Kalman filter (EnKF).
-
-> **Note:**
->
-> Calls [`omf_enkf_correct!`](@ref) intrinsically.
-
-# Arguments
-- `fcache::EnKFCache`: a cache holding memory-heavy objects
-- `H::AbstractMatrix`: measurement matrix of the state space model
-- `R_inv::AbstractMatrix`: *inverse of* the measurement noise covariance of the state space model
-- `y::AbstractVector`: a measurement (data point)
-- `v::AbstractVector` (optional): affine control input to the measurement
-
-# References
-[1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter.
-"""
-function enkf_correct!(
-    fcache::EnKFCache,
-    H::AbstractMatrix,
-    R_inv::AbstractMatrix,
-    y::AbstractVector,
-    v::Union{AbstractVector,Missing} = missing,
-)
-    mul!(fcache.HX, H, fcache.forecast_ensemble)  # [d, D] x [D, N] -> O(dDN)
-    mul!(fcache.HA, H, fcache.A)  # [d, D] x [D, N] -> O(dDN)
-    if !ismissing(v)
-        fcache.HX .+= v
-        fcache.HA .+= v
+function enkf_matrixfree_correct!(
+    c::FilteringCache,
+    HX::AbstractMatrix{T},
+    HA::AbstractMatrix{T},
+    measurement_noise_dist::MvNormal,
+    y::AbstractVector{T};
+    R_inverse::Union{AbstractMatrix{T},Missing} = missing,
+) where {T}
+    d, D = size(H)
+    N = get(c.entries, (typeof(D), size(D), "N")) do
+        error("Ensemble size N is missing in FilteringCache.")
     end
-    omf_enkf_correct!(fcache, R_inv, y)
-end
-
-"""
-    omf_enkf_correct!(fcache, R_inv, y)
-
-Correction step in an **o**bservation-**m**atrix-**f**ree (omf) Ensemble Kalman filter (EnKF),
-assuming that the observation matrix never has to be built.
-
-Instead, the products ``HX`` and ``HA = H\\cdot\\left(X^f - \\mathbb{E}\\left[X^f\\right]\\right)`` are pre-computed
-_outside_ of the correction function and ``HX`` and ``HA`` are passed to the correction function.
-Assuming `R_inv` is a `Diagonal` matrix and ``HX`` and ``HA`` are cheap to compute, this results in
-a correction cost that is **linear** in the {state,observation}-dimension.
-
-> **Note:**
->
-> ``HX`` and ``HA`` have to be stored in the `fcache` before calling this function!
-
-# Arguments
-- `fcache::EnKFCache`: a cache holding memory-heavy objects
-- `R_inv::AbstractMatrix`: *inverse of* the measurement noise covariance of the state space model
-- `y::AbstractVector`: a measurement (data point)
-
-# References
-[1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter.
-"""
-function omf_enkf_correct!(
-    fcache::EnKFCache,
-    R_inv::AbstractMatrix,
-    y::AbstractVector,
-)
-    N = size(fcache.forecast_ensemble, 2)
     Nsub1 = N - 1
+    forecast_ensemble = get(c.entries, (Matrix{T}, (D, N), "forecast_ensemble")) do
+        error("Cannot correct, no forecast ensemble in cache.")
+    end
+    ensemble = get!(
+        c.entries,
+        (typeof(forecast_ensemble), size(forecast_ensemble), "ensemble"),
+        similar(forecast_ensemble)
+    )
+    ens_mean = get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
+    A = get!(c.entries, (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble")) do
+        centered_ensemble!(similar(forecast_ensemble), ens_mean, forecast_ensemble)
+    end
 
     # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
-    Distributions.rand!(fcache.observation_noise_dist, fcache.dxN_cache01)
-    fcache.dxN_cache01 .+= y
-    fcache.dxN_cache01 .-= fcache.HX
+    residual = get!(c.entries, (typeof(HX), size(HX), "residual"), similar(HX))
+    Distributions.rand!(measurement_noise_dist, residual)
+    residual .+= y
+    residual .-= HX
 
-    # R⁻¹ (D - HX)
-    mul!(fcache.dxN_cache02, R_inv, fcache.dxN_cache01)
+    compute_P_inverse = !ismissing(R_inverse)
+    if compute_P_inverse
+        # ALLOCATE / QUERY CACHES >>>
+        dxN_cache01 = get!(
+            c.entries, (typeof(residual), size(residual), "dxN_000"), similar(residual)
+        )
+        dxN_cache02 = get!(
+            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_001"), similar(dxN_cache01)
+        )
+        dxN_cache03 = get!(
+            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_002"), similar(dxN_cache01)
+        )
+        dxN_cache04 = get!(
+            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_003"), similar(dxN_cache01)
+        )
+        NxN_cache01 = get!(
+            c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N)
+        )
+        NxN_cache02 = get!(
+            c.entries, (Matrix{T}, (N, N), "NxN_001"), Matrix{T}(undef, N, N)
+        )
+        # <<<
 
-    # (HA)' R⁻¹(D - HX)
-    mul!(fcache.NxN_cache01, fcache.HA', fcache.dxN_cache02)
+        # R⁻¹ (D - HX)
+        mul!(dxN_cache02, R_inverse, dxN_cache01)
 
-    # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
-    #  -> R⁻¹(HA) / (N-1)
-    mul!(fcache.dxN_cache03, rdiv!(R_inv, Nsub1), fcache.HA)
-    #  -> (HA)'R⁻¹(HA) / (N-1)
-    mul!(fcache.NxN_cache02, fcache.HA', fcache.dxN_cache03) # That's Q without the added Identity matrix
-    #  -> I_N + (HA)'R⁻¹(HA) / (N-1)
-    @inbounds @simd for i in 1:N
-        fcache.NxN_cache02[i, i] += 1.0
-    end # So that's Q now
+        # (HA)' R⁻¹(D - HX)
+        mul!(NxN_cache01, HA', dxN_cache02)
 
-    # Q⁻¹ (HA)' R⁻¹(D - HX)   /GETS OVERWRITTEN\   /GETS OVERWRITTEN\
-    #                        |   by cholesky!   | |     by ldiv!     |
-    ldiv!(cholesky!(Symmetric(fcache.NxN_cache02)), fcache.NxN_cache01)
+        # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
+        #  -> R⁻¹(HA) / (N-1)
+        mul!(dxN_cache03, rdiv!(R_inverse, Nsub1), HA)
+        #  -> (HA)'R⁻¹(HA) / (N-1)
+        mul!(NxN_cache02, HA', dxN_cache03) # That's Q without the added Identity matrix
+        #  -> I_N + (HA)'R⁻¹(HA) / (N-1)
+        @inbounds @simd for i in 1:N
+            NxN_cache02[i, i] += 1.0
+        end # So that's Q now
 
-    # K := (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
-    ldiv!(Nsub1, mul!(fcache.dxN_cache02, fcache.HA, fcache.NxN_cache01))
+        # Q⁻¹ (HA)' R⁻¹(D - HX)   /GETS OVERWRITTEN\   /GETS OVERWRITTEN\
+        #                        |by cholesky!| | by ldiv!  |
+        ldiv!(cholesky!(Symmetric(NxN_cache02)), NxN_cache01)
 
-    # (D - HX) - K
-    fcache.dxN_cache01 .-= fcache.dxN_cache02
+        # K := (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
+        ldiv!(Nsub1, mul!(dxN_cache02, HA, NxN_cache01))
 
-    # R⁻¹((D - HX) - K)
-    mul!(fcache.dxN_cache04, R_inv, fcache.dxN_cache01)
+        # (D - HX) - K
+        copy!(dxN_cache01, residual)
+        dxN_cache01 .-= dxN_cache02
 
-    # (HA)' R⁻¹((D - HX) - K)
-    mul!(fcache.NxN_cache02, fcache.HA', fcache.dxN_cache04)
+        # R⁻¹((D - HX) - K)
+        mul!(dxN_cache04, R_inverse, dxN_cache01)
 
-    # Xᵃ = Xᶠ + A / (N-1) (HA)' R⁻¹((D - HX) - K)
-    copy!(fcache.ensemble, fcache.forecast_ensemble)
-    mul!(fcache.ensemble, ldiv!(Nsub1, fcache.A), fcache.NxN_cache02, 1.0, 1.0)
+        # (HA)' R⁻¹((D - HX) - K)
+        mul!(NxN_cache02, HA', dxN_cache04)
+
+        # Xᵃ = Xᶠ + A / (N-1) (HA)' R⁻¹((D - HX) - K)
+        copy!(ensemble, forecast_ensemble)
+        mul!(ensemble, ldiv!(Nsub1, A), NxN_cache02, 1.0, 1.0)
+    else
+        # ALLOCATE / QUERY CACHES >>>
+        P = get!(c.entries, (Matrix{T}, (d, d), "P"), Matrix{T}(undef, d, d))
+        P_inv_times_res = get!(c.entries, (Matrix{T}, (d, N), "Pinv_times_res"), Matrix{T}(undef, d, N))
+        NxN_cache = get!(c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N))
+        # <<<
+        ldiv!(Nsub1, mul!(P, HA, HA'))
+        P .+= measurement_noise_dist.Σ
+        ldiv!(P_inv_times_res, cholesky!(Symmetric(P)), residual)
+        mul!(NxN_cache, HA', P_inv_times_res)
+        copy!(ensemble, forecast_ensemble)
+        mul!(ensemble, ldiv!(Nsub1, A), NxN_cache, 1.0, 1.0)
+    end
+    return ensemble
 end
 
-export enkf_predict!
-export enkf_correct!
-export omf_enkf_correct!
