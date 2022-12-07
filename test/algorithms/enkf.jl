@@ -88,7 +88,7 @@ const ENSEMBLE_SIZE = 1000
             label = "kf",
             color = 5,
             lw = 3,
-            ls=:dot
+            ls = :dot,
         )
         plot!(
             test_plot2,
@@ -98,13 +98,12 @@ const ENSEMBLE_SIZE = 1000
             label = "kf",
             color = 5,
             lw = 3,
-            ls=:dot
+            ls = :dot,
         )
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
         savefig(test_plot, joinpath(mkpath("./out/"), "enkf_standard_oop_test_output.png"))
     end
 end
-
 
 @testset "Standard EnKF (OOP) vs. observation-matrix-free EnKF (OOP) with N > d" begin
     Random.seed!(1234)
@@ -147,8 +146,8 @@ end
         )
 
         # _A = centered_ensemble(omf_ensemble)
-        HX =  H(omf_m) * omf_ensemble .+ v(omf_m)
-        HA =  centered_ensemble(HX)
+        HX = H(omf_m) * omf_ensemble .+ v(omf_m)
+        HA = centered_ensemble(HX)
         omf_ensemble = enkf_matrixfree_correct(
             omf_ensemble,
             HX,
@@ -156,7 +155,7 @@ end
             measurement_noise_dist(y),
             y;
             # A = _A,
-            R_inverse=missing
+            R_inverse = missing,
         )
         standard_m, standard_C = ensemble_mean_cov(standard_ensemble)
         omf_m, omf_C = ensemble_mean_cov(omf_ensemble)
@@ -214,7 +213,7 @@ end
             label = "standard",
             color = 5,
             lw = 3,
-            ls=:dot
+            ls = :dot,
         )
         plot!(
             test_plot2,
@@ -224,13 +223,15 @@ end
             label = "standard",
             color = 5,
             lw = 3,
-            ls=:dot
+            ls = :dot,
         )
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "omf_vs_standard_oop_test_output.png"))
+        savefig(
+            test_plot,
+            joinpath(mkpath("./out/"), "omf_vs_standard_oop_test_output.png"),
+        )
     end
 end
-
 
 @testset "OMF EnKF with P (OOP) vs. P⁻¹ (OOP) with N < d" begin
     Random.seed!(1234)
@@ -264,8 +265,8 @@ end
         mil_m, mil_C = ensemble_mean_cov(mil_ensemble)
         omf_m, omf_C = ensemble_mean_cov(omf_ensemble)
 
-        mil_HX =  H(mil_m) * mil_ensemble .+ v(mil_m)
-        mil_HA =  centered_ensemble(mil_HX)
+        mil_HX = H(mil_m) * mil_ensemble .+ v(mil_m)
+        mil_HA = centered_ensemble(mil_HX)
         mil_ensemble = enkf_matrixfree_correct(
             mil_ensemble,
             mil_HX,
@@ -273,11 +274,11 @@ end
             measurement_noise_dist(y),
             y;
             # A = _A,
-            R_inverse=inv(R(y))
+            R_inverse = inv(R(y)),
         )
 
-        omf_HX =  H(omf_m) * omf_ensemble .+ v(omf_m)
-        omf_HA =  centered_ensemble(omf_HX)
+        omf_HX = H(omf_m) * omf_ensemble .+ v(omf_m)
+        omf_HA = centered_ensemble(omf_HX)
         omf_ensemble = enkf_matrixfree_correct(
             omf_ensemble,
             omf_HX,
@@ -285,7 +286,7 @@ end
             measurement_noise_dist(y),
             y;
             # A = _A,
-            R_inverse=missing
+            R_inverse = missing,
         )
 
         mil_m, mil_C = ensemble_mean_cov(mil_ensemble)
@@ -344,7 +345,7 @@ end
             label = "MIL",
             color = 5,
             lw = 3,
-            ls=:dot
+            ls = :dot,
         )
         plot!(
             test_plot2,
@@ -354,7 +355,7 @@ end
             label = "MIL",
             color = 5,
             lw = 3,
-            ls=:dot
+            ls = :dot,
         )
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
         savefig(test_plot, joinpath(mkpath("./out/"), "omf_vs_mil_oop_test_output.png"))

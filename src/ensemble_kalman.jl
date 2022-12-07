@@ -18,12 +18,15 @@ export centered_ensemble
 export ensemble_cov
 export ensemble_mean_cov
 
-
 function ensemble_mean!(out_m::AbstractVector, ens::AbstractMatrix)
     rdiv!(sum!(out_m, ens), size(ens, 2))
     return out_m
 end
-function centered_ensemble!(out_ens::AbstractMatrix, out_m::AbstractVector, ens::AbstractMatrix)
+function centered_ensemble!(
+    out_ens::AbstractMatrix,
+    out_m::AbstractVector,
+    ens::AbstractMatrix,
+)
     out_m = ensemble_mean!(out_m, ens)
     copy!(out_ens, ens)
     out_ens .-= out_m
@@ -33,14 +36,13 @@ function ensemble_mean_cov!(
     out_cov::AbstractMatrix,
     out_ens::AbstractMatrix,
     out_m::AbstractVector,
-    ens::AbstractMatrix
+    ens::AbstractMatrix,
 )
     A = centered_ensemble!(out_ens, out_m, ens)
     N_sub_1 = size(ens, 2) - 1
     rdiv!(mul!(out_cov, A, A'), N_sub_1)
     return out_m, out_cov
 end
-
 
 export ensemble_mean!
 export centered_ensemble!
@@ -186,7 +188,7 @@ function enkf_predict!(
     forecast_ensemble = get!(
         c.entries,
         (typeof(ensemble), size(ensemble), "forecast_ensemble"),
-        similar(ensemble)
+        similar(ensemble),
     )
 
     Distributions.rand!(process_noise_dist, forecast_ensemble)
@@ -195,16 +197,24 @@ function enkf_predict!(
         forecast_ensemble .+= u
     end
 
-    ens_mean = get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
-    A = get!(c.entries, (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"), similar(forecast_ensemble))
+    ens_mean =
+        get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
+    A = get!(
+        c.entries,
+        (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"),
+        similar(forecast_ensemble),
+    )
 
     centered_ensemble!(A, ens_mean, forecast_ensemble)
 
     return forecast_ensemble
 end
 
-
-function HX_HA!(c::FilteringCache, H::AbstractMatrix{T}, v::Union{AbstractVector{T},Missing} = missing)
+function HX_HA!(
+    c::FilteringCache,
+    H::AbstractMatrix{T},
+    v::Union{AbstractVector{T},Missing} = missing,
+)
     d, D = size(H)
     N = get(c.entries, (typeof(D), size(D), "N")) do
         error("Ensemble size N is missing in FilteringCache.")
@@ -218,11 +228,11 @@ function HX_HA!(c::FilteringCache, H::AbstractMatrix{T}, v::Union{AbstractVector
     if !ismissing(v)
         HX .+= v
     end
-    ens_mean = get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
+    ens_mean =
+        get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
     centered_ensemble!(HA, ens_mean, HX)
     return HX, HA
 end
-
 
 function enkf_correct!(
     c::FilteringCache,
@@ -242,10 +252,14 @@ function enkf_correct!(
     ensemble = get!(
         c.entries,
         (typeof(forecast_ensemble), size(forecast_ensemble), "ensemble"),
-        similar(forecast_ensemble)
+        similar(forecast_ensemble),
     )
-    ens_mean = get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
-    A = get!(c.entries, (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble")) do
+    ens_mean =
+        get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
+    A = get!(
+        c.entries,
+        (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"),
+    ) do
         centered_ensemble!(similar(forecast_ensemble), ens_mean, forecast_ensemble)
     end
 
@@ -277,7 +291,6 @@ function enkf_correct!(
     return ensemble
 end
 
-
 function enkf_matrixfree_correct!(
     c::FilteringCache,
     HX::AbstractMatrix{T},
@@ -297,10 +310,14 @@ function enkf_matrixfree_correct!(
     ensemble = get!(
         c.entries,
         (typeof(forecast_ensemble), size(forecast_ensemble), "ensemble"),
-        similar(forecast_ensemble)
+        similar(forecast_ensemble),
     )
-    ens_mean = get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
-    A = get!(c.entries, (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble")) do
+    ens_mean =
+        get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
+    A = get!(
+        c.entries,
+        (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"),
+    ) do
         centered_ensemble!(similar(forecast_ensemble), ens_mean, forecast_ensemble)
     end
 
@@ -314,22 +331,25 @@ function enkf_matrixfree_correct!(
     if compute_P_inverse
         # ALLOCATE / QUERY CACHES >>>
         dxN_cache01 = get!(
-            c.entries, (typeof(residual), size(residual), "dxN_000"), similar(residual)
+            c.entries, (typeof(residual), size(residual), "dxN_000"), similar(residual),
         )
         dxN_cache02 = get!(
-            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_001"), similar(dxN_cache01)
+            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_001"),
+            similar(dxN_cache01),
         )
         dxN_cache03 = get!(
-            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_002"), similar(dxN_cache01)
+            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_002"),
+            similar(dxN_cache01),
         )
         dxN_cache04 = get!(
-            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_003"), similar(dxN_cache01)
+            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_003"),
+            similar(dxN_cache01),
         )
         NxN_cache01 = get!(
-            c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N)
+            c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N),
         )
         NxN_cache02 = get!(
-            c.entries, (Matrix{T}, (N, N), "NxN_001"), Matrix{T}(undef, N, N)
+            c.entries, (Matrix{T}, (N, N), "NxN_001"), Matrix{T}(undef, N, N),
         )
         # <<<
 
@@ -372,7 +392,8 @@ function enkf_matrixfree_correct!(
     else
         # ALLOCATE / QUERY CACHES >>>
         P = get!(c.entries, (Matrix{T}, (d, d), "P"), Matrix{T}(undef, d, d))
-        P_inv_times_res = get!(c.entries, (Matrix{T}, (d, N), "Pinv_times_res"), Matrix{T}(undef, d, N))
+        P_inv_times_res =
+            get!(c.entries, (Matrix{T}, (d, N), "Pinv_times_res"), Matrix{T}(undef, d, N))
         NxN_cache = get!(c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N))
         # <<<
         ldiv!(Nsub1, mul!(P, HA, HA'))
@@ -384,4 +405,3 @@ function enkf_matrixfree_correct!(
     end
     return ensemble
 end
-
