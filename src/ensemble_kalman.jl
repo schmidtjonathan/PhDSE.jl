@@ -195,14 +195,10 @@ function enkf_predict!(
         forecast_ensemble .+= u
     end
 
-    # # Compute sample mean of forecast ensemble
-    # fensemble_mean = get!(
-    #     c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D)
-    # )
-    # rdiv!(sum!(fensemble_mean, forecast_ensemble), N)
-    # # Calculate zero-mean forecast ensemble by subtracting the mean
-    # copy!(fcache.A, fcache.forecast_ensemble)
-    # fcache.A .-= fcache.mX
+    ens_mean = get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
+    A = get!(c.entries, (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"), similar(forecast_ensemble))
+
+    centered_ensemble!(A, ens_mean, forecast_ensemble)
 
     return forecast_ensemble
 end
