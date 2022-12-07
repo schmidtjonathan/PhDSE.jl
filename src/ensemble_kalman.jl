@@ -143,22 +143,40 @@ Prediction step in an Ensemble Kalman filter (EnKF).
 [1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter.
 """
 function enkf_predict!(
-    fcache::EnKFCache,
-    Φ::AbstractMatrix,
-    u::Union{AbstractVector,Missing} = missing,
-)
-    N = size(fcache.ensemble, 2)
-    Distributions.rand!(fcache.process_noise_dist, fcache.forecast_ensemble)
-    mul!(fcache.forecast_ensemble, Φ, fcache.ensemble, 1.0, 1.0)
+    c::FilteringCache,
+    Φ::AbstractMatrix{T},
+    process_noise_dist::MvNormal,
+    u::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    D = size(Φ, 1)
+    N = get(c.entries, (typeof(D), size(D), "N")) do
+        error("Ensemble size N is missing in FilteringCache.")
+    end
+    ensemble = get(c.entries, (Matrix{T}, (D, N), "ensemble")) do
+        error("Cannot predict, no analysis ensemble in cache.")
+    end
+    forecast_ensemble = get!(
+        c.entries,
+        (typeof(ensemble), size(ensemble), "forecast_ensemble"),
+        similar(ensemble)
+    )
+
+    Distributions.rand!(process_noise_dist, forecast_ensemble)
+    mul!(forecast_ensemble, Φ, ensemble, 1.0, 1.0)
     if !ismissing(u)
-        fcache.forecast_ensemble .+= u
+        forecast_ensemble .+= u
     end
 
-    # Compute sample mean of forecast ensemble
-    rdiv!(sum!(fcache.mX, fcache.forecast_ensemble), N)
-    # Calculate zero-mean forecast ensemble by subtracting the mean
-    copy!(fcache.A, fcache.forecast_ensemble)
-    fcache.A .-= fcache.mX
+    # # Compute sample mean of forecast ensemble
+    # fensemble_mean = get!(
+    #     c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D)
+    # )
+    # rdiv!(sum!(fensemble_mean, forecast_ensemble), N)
+    # # Calculate zero-mean forecast ensemble by subtracting the mean
+    # copy!(fcache.A, fcache.forecast_ensemble)
+    # fcache.A .-= fcache.mX
+
+    return forecast_ensemble
 end
 
 """
