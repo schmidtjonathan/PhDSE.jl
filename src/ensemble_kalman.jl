@@ -54,8 +54,8 @@ function enkf_correct(
     end
     data_plus_noise = rand(measurement_noise_dist, N) .+ y
     residual = data_plus_noise - HX
-
     A = centered_ensemble(forecast_ensemble)
+
     C = Symmetric(A * A') / (N - 1)
     cross_covariance = C * H'
     Ŝ = Symmetric(H * cross_covariance + measurement_noise_dist.Σ, :L)
@@ -69,19 +69,22 @@ function enkf_matrixfree_correct(
     HX::AbstractMatrix{T},
     HA::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
-    y::AbstractVector{T},
+    y::AbstractVector{T};
+    A::Union{AbstractMatrix{T},Missing} = missing,
     R_inverse::Union{AbstractMatrix{T},Missing} = missing,
-    v::Union{AbstractVector{T},Missing} = missing,
 ) where {T}
     D, N = size(forecast_ensemble)
     Nsub1 = N - 1
     d = length(y)
     data_plus_noise = rand(measurement_noise_dist, N) .+ y
     residual = data_plus_noise - HX
-    A = centered_ensemble(forecast_ensemble)
+    if ismissing(A)
+        A = centered_ensemble(forecast_ensemble)
+    end
 
     compute_P_inverse = (d > N) && !ismissing(R_inverse)
     if compute_P_inverse
+        @info "Matrix inversion lemma"
         # Implementation from the paper/preprint by Mandel; Section 4.2
         # uses the Matrix inversion lemma to be optimal for d >> N
         # -------------------------------------------------------------
@@ -105,8 +108,10 @@ function enkf_matrixfree_correct(
 
         P_inv_times_res = R_inverse * T5  # this is [d x d] * [d x N] -> [d x N]
     else
+        # @info "Standard"
         # If N > d, use the standard approach instead, computing P,
         # instead of P⁻¹
+        # @show measurement_noise_dist.Σ
         P = Nsub1 \ Symmetric(HA * HA' + measurement_noise_dist.Σ, :L)
 
         P_inv_times_res = P \ residual  # this is [d x d] * [d x N] -> [d x N]
