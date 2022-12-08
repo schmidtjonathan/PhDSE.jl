@@ -2,7 +2,11 @@
     Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
-    cache = FilteringCache(initial_mean = μ₀, initial_covariance = Σ₀)
+    cache = FilteringCache(μ₀, Σ₀)
+    @test haskey(cache.entries, (typeof(μ₀), size(μ₀), "mean"))
+    @test haskey(cache.entries, (typeof(μ₀), size(μ₀), "predicted_mean"))
+    @test haskey(cache.entries, (typeof(Σ₀), size(Σ₀), "covariance"))
+    @test haskey(cache.entries, (typeof(Σ₀), size(Σ₀), "predicted_covariance"))
 
     iip_m = copy(μ₀)
     oop_m = copy(μ₀)
