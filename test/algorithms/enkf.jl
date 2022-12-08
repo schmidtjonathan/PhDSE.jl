@@ -508,16 +508,21 @@ end
     measurement_noise_dist(x) = MvNormal(zero(x), R(x))
     standard_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
     omf_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
+    omf_invR_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
 
     omf_cache = FilteringCache(omf_ensemble)
+    omf_invR_cache = FilteringCache(omf_invR_ensemble)
     standard_cache = FilteringCache(standard_ensemble)
 
     standard_m = copy(μ₀)
     omf_m = copy(μ₀)
+    omf_invR_m = copy(μ₀)
     standard_C = copy(Σ₀)
     omf_C = copy(Σ₀)
+    omf_invR_C = copy(Σ₀)
     standard_traj = [(copy(μ₀), copy(Σ₀))]
     omf_traj = [(copy(μ₀), copy(Σ₀))]
+    omf_invR_traj = [(copy(μ₀), copy(Σ₀))]
     for y in observations
         standard_ensemble = enkf_predict!(
             standard_cache,
@@ -531,9 +536,16 @@ end
             process_noise_dist(omf_m),
             u(omf_m),
         )
+        omf_invR_ensemble = enkf_predict!(
+            omf_invR_cache,
+            A(omf_invR_m),
+            process_noise_dist(omf_invR_m),
+            u(omf_invR_m),
+        )
 
         standard_m, standard_C = ensemble_mean_cov(standard_ensemble)
         omf_m, omf_C = ensemble_mean_cov(copy(omf_ensemble))
+        omf_invR_m, omf_invR_C = ensemble_mean_cov(copy(omf_invR_ensemble))
 
         standard_ensemble = enkf_correct!(
             standard_cache,
@@ -543,21 +555,35 @@ end
             v(standard_m),
         )
 
-        centered_fens, HX, HA = PhDSE.A_HX_HA!(omf_cache, H(omf_m), v(omf_m))
+        omf_centered_fens, omf_HX, omf_HA = PhDSE.A_HX_HA!(omf_cache, H(omf_m), v(omf_m))
         omf_ensemble = enkf_matrixfree_correct!(
             omf_cache,
-            HX,
-            HA,
-            centered_fens,
+            omf_HX,
+            omf_HA,
+            omf_centered_fens,
             measurement_noise_dist(y),
             y;
             R_inverse=missing
         )
+
+        omf_invR_centered_fens, omf_invR_HX, omf_invR_HA = PhDSE.A_HX_HA!(omf_invR_cache, H(omf_invR_m), v(omf_invR_m))
+        omf_invR_ensemble = enkf_matrixfree_correct!(
+            omf_invR_cache,
+            omf_invR_HX,
+            omf_invR_HA,
+            omf_invR_centered_fens,
+            measurement_noise_dist(y),
+            y;
+            R_inverse=inv(R(y)),
+        )
+
         standard_m, standard_C = ensemble_mean_cov(standard_ensemble)
         omf_m, omf_C = ensemble_mean_cov(omf_ensemble)
+        omf_invR_m, omf_invR_C = ensemble_mean_cov(omf_invR_ensemble)
 
         push!(standard_traj, (copy(standard_m), copy(standard_C)))
         push!(omf_traj, (copy(omf_m), copy(omf_C)))
+        push!(omf_invR_traj, (copy(omf_invR_m), copy(omf_invR_C)))
     end
 
     # for ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
@@ -565,19 +591,21 @@ end
     # end
 
     @test all([
-        isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
-        ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
+        isapprox(m1, m2; atol = 0.1, rtol = 0.1) && isapprox(m2, m3; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2), (m3, C3)) in zip(standard_traj, omf_traj, omf_invR_traj)
     ])
     @test all([
-        isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
-        ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
+        isapprox(C1, C2; atol = 0.1, rtol = 0.1) && isapprox(C2, C3; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2), (m3, C3)) in zip(standard_traj, omf_traj, omf_invR_traj)
     ])
 
     if PLOT_RESULTS
         standard_means = [m for (m, C) in standard_traj]
         omf_means = [m for (m, C) in omf_traj]
+        omf_invR_means = [m for (m, C) in omf_invR_traj]
         standard_stds = [2sqrt.(diag(C)) for (m, C) in standard_traj]
         omf_stds = [2sqrt.(diag(C)) for (m, C) in omf_traj]
+        omf_invR_stds = [2sqrt.(diag(C)) for (m, C) in omf_invR_traj]
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
@@ -599,6 +627,24 @@ end
             ribbon = [s[2] for s in omf_stds],
             label = "omf",
             color = 3,
+            lw = 3,
+        )
+        plot!(
+            test_plot1,
+            1:length(omf_invR_means),
+            [m[1] for m in omf_invR_means],
+            ribbon = [s[1] for s in omf_invR_stds],
+            label = "omf_invR",
+            color = 4,
+            lw = 3,
+        )
+        plot!(
+            test_plot2,
+            1:length(omf_invR_means),
+            [m[2] for m in omf_invR_means],
+            ribbon = [s[2] for s in omf_invR_stds],
+            label = "omf_invR",
+            color = 4,
             lw = 3,
         )
         plot!(
