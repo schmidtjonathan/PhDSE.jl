@@ -395,9 +395,9 @@ end
         )
         iip_ensemble = enkf_predict!(
             enkf_cache,
-            A(oop_m),
-            process_noise_dist(oop_m),
-            u(oop_m),
+            A(iip_m),
+            process_noise_dist(iip_m),
+            u(iip_m),
         )
         @assert iip_ensemble === enkf_cache.entries[(typeof(iip_ensemble), size(iip_ensemble), "forecast_ensemble")]
         # @show oop_m
@@ -405,23 +405,23 @@ end
         oop_m, oop_C = ensemble_mean_cov(oop_ensemble)
         iip_m, iip_C = ensemble_mean_cov(copy(iip_ensemble))
 
-        # oop_ensemble = enkf_correct(
-        #     oop_ensemble,
-        #     H(oop_m),
-        #     measurement_noise_dist(y),
-        #     y,
-        #     v(oop_m),
-        # )
+        oop_ensemble = enkf_correct(
+            oop_ensemble,
+            H(oop_m),
+            measurement_noise_dist(y),
+            y,
+            v(oop_m),
+        )
 
-        # iip_ensemble = enkf_correct!(
-        #     enkf_cache,
-        #     H(iip_m),
-        #     measurement_noise_dist(y),
-        #     y,
-        #     v(iip_m),
-        # )
-        # oop_m, oop_C = ensemble_mean_cov(oop_ensemble)
-        # iip_m, iip_C = ensemble_mean_cov(iip_ensemble)
+        iip_ensemble = enkf_correct!(
+            enkf_cache,
+            H(iip_m),
+            measurement_noise_dist(y),
+            y,
+            v(iip_m),
+        )
+        oop_m, oop_C = ensemble_mean_cov(oop_ensemble)
+        iip_m, iip_C = ensemble_mean_cov(iip_ensemble)
 
         push!(oop_traj, (copy(oop_m), copy(oop_C)))
         push!(iip_traj, (copy(iip_m), copy(iip_C)))
