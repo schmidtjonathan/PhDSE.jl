@@ -361,3 +361,137 @@ end
         savefig(test_plot, joinpath(mkpath("./out/"), "omf_vs_mil_oop_test_output.png"))
     end
 end
+
+
+@testset "Standard EnKF (OOP) vs. Standard EnKF (IIP)" begin
+    Random.seed!(1234)
+
+    μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
+    init_dist = MvNormal(μ₀, Σ₀)
+    process_noise_dist(x) = MvNormal(zero(x), Q(x))
+    measurement_noise_dist(x) = MvNormal(zero(x), R(x))
+    oop_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
+    iip_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
+
+    enkf_cache = FilteringCache(iip_ensemble)
+    @test haskey(enkf_cache.entries, (typeof(size(iip_ensemble, 2)), size(size(iip_ensemble, 2)), "N"))
+    @test haskey(enkf_cache.entries, (typeof(iip_ensemble), size(iip_ensemble), "ensemble"))
+    @test haskey(enkf_cache.entries, (typeof(iip_ensemble), size(iip_ensemble), "forecast_ensemble"))
+
+    @assert iip_ensemble == enkf_cache.entries[(typeof(iip_ensemble), size(iip_ensemble), "ensemble")]
+
+    oop_m = copy(μ₀)
+    iip_m = copy(μ₀)
+    oop_C = copy(Σ₀)
+    iip_C = copy(Σ₀)
+    oop_traj = [(copy(μ₀), copy(Σ₀))]
+    iip_traj = [(copy(μ₀), copy(Σ₀))]
+    for y in observations
+        oop_ensemble = enkf_predict(
+            oop_ensemble,
+            A(oop_m),
+            process_noise_dist(oop_m),
+            u(oop_m),
+        )
+        iip_ensemble = enkf_predict!(
+            enkf_cache,
+            A(oop_m),
+            process_noise_dist(oop_m),
+            u(oop_m),
+        )
+        @assert iip_ensemble === enkf_cache.entries[(typeof(iip_ensemble), size(iip_ensemble), "forecast_ensemble")]
+        # @show oop_m
+        # @show iip_m
+        oop_m, oop_C = ensemble_mean_cov(oop_ensemble)
+        iip_m, iip_C = ensemble_mean_cov(copy(iip_ensemble))
+
+        # oop_ensemble = enkf_correct(
+        #     oop_ensemble,
+        #     H(oop_m),
+        #     measurement_noise_dist(y),
+        #     y,
+        #     v(oop_m),
+        # )
+
+        # iip_ensemble = enkf_correct!(
+        #     enkf_cache,
+        #     H(iip_m),
+        #     measurement_noise_dist(y),
+        #     y,
+        #     v(iip_m),
+        # )
+        # oop_m, oop_C = ensemble_mean_cov(oop_ensemble)
+        # iip_m, iip_C = ensemble_mean_cov(iip_ensemble)
+
+        push!(oop_traj, (copy(oop_m), copy(oop_C)))
+        push!(iip_traj, (copy(iip_m), copy(iip_C)))
+    end
+
+    # for ((m1, C1), (m2, C2)) in zip(oop_traj, iip_traj)
+    #     println("$m1 vs. $m2")
+    # end
+
+    @test all([
+        isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(oop_traj, iip_traj)
+    ])
+    @test all([
+        isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(oop_traj, iip_traj)
+    ])
+
+    if PLOT_RESULTS
+        oop_means = [m for (m, C) in oop_traj]
+        iip_means = [m for (m, C) in iip_traj]
+        oop_stds = [2sqrt.(diag(C)) for (m, C) in oop_traj]
+        iip_stds = [2sqrt.(diag(C)) for (m, C) in iip_traj]
+        using Plots
+        test_plot1 =
+            scatter(1:length(observations), [o[1] for o in observations], color = 1)
+        test_plot2 =
+            scatter(1:length(observations), [o[2] for o in observations], color = 2)
+        plot!(
+            test_plot1,
+            1:length(iip_means),
+            [m[1] for m in iip_means],
+            ribbon = [s[1] for s in iip_stds],
+            label = "IIP",
+            color = 3,
+            lw = 3,
+        )
+        plot!(
+            test_plot2,
+            1:length(iip_means),
+            [m[2] for m in iip_means],
+            ribbon = [s[2] for s in iip_stds],
+            label = "IIP",
+            color = 3,
+            lw = 3,
+        )
+        plot!(
+            test_plot1,
+            1:length(oop_means),
+            [m[1] for m in oop_means],
+            ribbon = [s[1] for s in oop_stds],
+            label = "OOP",
+            color = 5,
+            lw = 3,
+            ls = :dot,
+        )
+        plot!(
+            test_plot2,
+            1:length(oop_means),
+            [m[2] for m in oop_means],
+            ribbon = [s[2] for s in oop_stds],
+            label = "OOP",
+            color = 5,
+            lw = 3,
+            ls = :dot,
+        )
+        test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
+        savefig(
+            test_plot,
+            joinpath(mkpath("./out/"), "enkf_iip_vs_oop_test_output.png"),
+        )
+    end
+end
