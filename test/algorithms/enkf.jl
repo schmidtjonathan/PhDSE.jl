@@ -1,4 +1,4 @@
-const ENSEMBLE_SIZE = 10000
+const ENSEMBLE_SIZE = 2000
 
 @testset "Kalman filter (OOP) vs. standard EnKF (OOP)" begin
     Random.seed!(1234)
@@ -7,7 +7,8 @@ const ENSEMBLE_SIZE = 10000
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist(x) = MvNormal(zero(x), Q(x))
     measurement_noise_dist(x) = MvNormal(zero(x), R(x))
-    ensemble = rand(init_dist, ENSEMBLE_SIZE)
+    # Choose larger ensemble size when comparing to exact KF computation
+    ensemble = rand(init_dist, ENSEMBLE_SIZE * 10)
 
     kf_m = copy(μ₀)
     enkf_m = copy(μ₀)
@@ -39,9 +40,6 @@ const ENSEMBLE_SIZE = 10000
         push!(enkf_traj, (copy(enkf_m), copy(enkf_C)))
     end
 
-    # for ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
-    #     println("$m1 vs. $m2")
-    # end
 
     @test all([
         isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
@@ -101,11 +99,12 @@ const ENSEMBLE_SIZE = 10000
             ls = :dot,
         )
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "enkf_standard_oop_test_output.png"))
+        savefig(test_plot, joinpath(mkpath("./out/"), "KF_oop-vs-standardEnKF_oop.png"))
     end
 end
 
-@testset "Standard EnKF (OOP) vs. observation-matrix-free EnKF (OOP) with N > d" begin
+
+@testset "Standard EnKF (OOP) vs. O(d^3) OMF EnKF (OOP)" begin
     Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -228,12 +227,12 @@ end
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
         savefig(
             test_plot,
-            joinpath(mkpath("./out/"), "omf_vs_standard_oop_test_output.png"),
+            joinpath(mkpath("./out/"), "standardEnKF_oop-vs-d3OMFEnKF_oop.png"),
         )
     end
 end
 
-@testset "OMF EnKF with P (OOP) vs. P⁻¹ (OOP) with N < d" begin
+@testset "O(d^3) OMF EnKF (OOP) vs. O(N^3) OMF EnKF (OOP)" begin
     Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -358,7 +357,7 @@ end
             ls = :dot,
         )
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "omf_vs_mil_oop_test_output.png"))
+        savefig(test_plot, joinpath(mkpath("./out/"), "d3OMFEnKF_oop-vs-N3OMFEnKF_oop.png"))
     end
 end
 
@@ -491,7 +490,7 @@ end
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
         savefig(
             test_plot,
-            joinpath(mkpath("./out/"), "enkf_iip_vs_oop_test_output.png"),
+            joinpath(mkpath("./out/"), "standardEnKF_oop-vs-standardEnKF_iip.png"),
         )
     end
 end
@@ -499,7 +498,7 @@ end
 
 
 
-@testset "Standard EnKF (IIP) vs. matrix-free EnKF (IIP)" begin
+@testset "Standard EnKF (IIP) vs. O(d^3) OMF EnKF (IIP) vs. O(N^3) OMF EnKF (IIP)" begin
     Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -591,12 +590,20 @@ end
     # end
 
     @test all([
-        isapprox(m1, m2; atol = 0.1, rtol = 0.1) && isapprox(m2, m3; atol = 0.1, rtol = 0.1) for
-        ((m1, C1), (m2, C2), (m3, C3)) in zip(standard_traj, omf_traj, omf_invR_traj)
+        isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
     ])
     @test all([
-        isapprox(C1, C2; atol = 0.1, rtol = 0.1) && isapprox(C2, C3; atol = 0.1, rtol = 0.1) for
-        ((m1, C1), (m2, C2), (m3, C3)) in zip(standard_traj, omf_traj, omf_invR_traj)
+        isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
+    ])
+    @test all([
+        isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(omf_traj, omf_invR_traj)
+    ])
+    @test all([
+        isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(omf_traj, omf_invR_traj)
     ])
 
     if PLOT_RESULTS
@@ -672,7 +679,7 @@ end
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
         savefig(
             test_plot,
-            joinpath(mkpath("./out/"), "iip_enkf_omf_vs_standard_test_output.png"),
+            joinpath(mkpath("./out/"), "standardEnKF_iip-vs-d3OMFEnKF_iip-vs-N3OMFEnKF_iip.png"),
         )
     end
 end
