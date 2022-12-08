@@ -300,14 +300,14 @@ function enkf_matrixfree_correct!(
         (typeof(forecast_ensemble), size(forecast_ensemble), "ensemble"),
         similar(forecast_ensemble),
     )
-    ens_mean =
-        get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
-    A = get!(
-        c.entries,
-        (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"),
-        similar(forecast_ensemble),
-    )
-    centered_ensemble!(A, ens_mean, forecast_ensemble)
+    # ens_mean =
+    #     get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
+    # A = get!(
+    #     c.entries,
+    #     (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"),
+    #     similar(forecast_ensemble),
+    # )
+    # centered_ensemble!(A, ens_mean, forecast_ensemble)
 
     # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
     residual = get!(c.entries, (typeof(HX), size(HX), "residual"), similar(HX))
@@ -317,6 +317,7 @@ function enkf_matrixfree_correct!(
 
     compute_P_inverse = !ismissing(R_inverse)
     if compute_P_inverse
+        @info "iip r inv"
         # ALLOCATE / QUERY CACHES >>>
         dxN_cache01 = get!(
             c.entries, (typeof(residual), size(residual), "dxN_000"), similar(residual),
@@ -377,7 +378,9 @@ function enkf_matrixfree_correct!(
         # Xᵃ = Xᶠ + A / (N-1) (HA)' R⁻¹((D - HX) - K)
         copy!(ensemble, forecast_ensemble)
         mul!(ensemble, ldiv!(Nsub1, A), NxN_cache02, 1.0, 1.0)
+        return ensemble
     else
+        @info "iip standard"
         # ALLOCATE / QUERY CACHES >>>
         P = get!(c.entries, (Matrix{T}, (d, d), "P"), Matrix{T}(undef, d, d))
         P_inv_times_res =
@@ -390,8 +393,8 @@ function enkf_matrixfree_correct!(
         mul!(NxN_cache, HA', P_inv_times_res)
         copy!(ensemble, forecast_ensemble)
         mul!(ensemble, ldiv!(Nsub1, A), NxN_cache, 1.0, 1.0)
+        return ensemble
     end
-    return ensemble
 end
 
 export enkf_predict!

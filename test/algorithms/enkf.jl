@@ -613,6 +613,26 @@ end
             scatter(1:length(observations), [o[2] for o in observations], color = 2)
         plot!(
             test_plot1,
+            1:length(standard_means),
+            [m[1] for m in standard_means],
+            ribbon = [s[1] for s in standard_stds],
+            label = "standard",
+            color = 5,
+            lw = 3,
+            ls = :dot,
+        )
+        plot!(
+            test_plot2,
+            1:length(standard_means),
+            [m[2] for m in standard_means],
+            ribbon = [s[2] for s in standard_stds],
+            label = "standard",
+            color = 5,
+            lw = 3,
+            ls = :dot,
+        )
+        plot!(
+            test_plot1,
             1:length(omf_means),
             [m[1] for m in omf_means],
             ribbon = [s[1] for s in omf_stds],
@@ -636,6 +656,7 @@ end
             ribbon = [s[1] for s in omf_invR_stds],
             label = "omf_invR",
             color = 4,
+            ls = :dashdot,
             lw = 3,
         )
         plot!(
@@ -645,27 +666,8 @@ end
             ribbon = [s[2] for s in omf_invR_stds],
             label = "omf_invR",
             color = 4,
+            ls = :dashdot,
             lw = 3,
-        )
-        plot!(
-            test_plot1,
-            1:length(standard_means),
-            [m[1] for m in standard_means],
-            ribbon = [s[1] for s in standard_stds],
-            label = "standard",
-            color = 5,
-            lw = 3,
-            ls = :dot,
-        )
-        plot!(
-            test_plot2,
-            1:length(standard_means),
-            [m[2] for m in standard_means],
-            ribbon = [s[2] for s in standard_stds],
-            label = "standard",
-            color = 5,
-            lw = 3,
-            ls = :dot,
         )
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
         savefig(
