@@ -309,7 +309,6 @@ function enkf_matrixfree_correct!(
 
     compute_P_inverse = !ismissing(R_inverse)
     if compute_P_inverse
-        @info "iip r inv"
         # ALLOCATE / QUERY CACHES >>>
         dxN_cache02 = get!(
             c.entries, (typeof(residual), size(residual), "dxN_001"),
@@ -369,7 +368,6 @@ function enkf_matrixfree_correct!(
         mul!(ensemble, rdiv!(A, Nsub1), NxN_cache02, 1.0, 1.0)
         return ensemble
     else
-        @info "iip standard"
         # ALLOCATE / QUERY CACHES >>>
         P = get!(c.entries, (Matrix{T}, (d, d), "P"), Matrix{T}(undef, d, d))
         P_inv_times_res =
