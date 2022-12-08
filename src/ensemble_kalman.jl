@@ -228,7 +228,7 @@ function A_HX_HA!(
     centered_ensemble!(A, ens_mean, forecast_ensemble)
 
     measured_ens_mean =
-        get!(c.entries, (Vector{T}, (D,), "measured_forecast_ensemble_mean"), Vector{T}(undef, D))
+        get!(c.entries, (Vector{T}, (d,), "measured_forecast_ensemble_mean"), Vector{T}(undef, d))
     centered_ensemble!(HA, measured_ens_mean, HX)
     return A, HX, HA
 end
@@ -255,6 +255,10 @@ function enkf_correct!(
     )
 
     A, HX, HA = A_HX_HA!(c, H, v)
+    # TODO: turn these into tests >>>>>>>>>>>>>>>>>>>>>>>>>v
+    @assert A ≈ centered_ensemble(forecast_ensemble)
+    @assert HX ≈ H * forecast_ensemble
+    @assert HA ≈ H * A
 
     # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
     residual = get!(c.entries, (typeof(HX), size(HX), "residual"), similar(HX))
@@ -262,16 +266,17 @@ function enkf_correct!(
     residual .+= y
     residual .-= HX
 
-    C = get!(c.entries, (Matrix{T}, (d, d), "C"), Matrix{T}(undef, d, d))
-    rdiv!(mul!(C, A, A'), Nsub1)
+    Σ̂ = get!(c.entries, (Matrix{T}, (D, D), "Σ̂"), Matrix{T}(undef, D, D))
+    rdiv!(mul!(Σ̂, A, A'), Nsub1)
     cross_cov = get!(c.entries, (Matrix{T}, (D, d), "cross_cov"), Matrix{T}(undef, D, d))
-    mul!(cross_cov, C, H')
+    mul!(cross_cov, Symmetric(Σ̂), H')
     Ŝ = get!(c.entries, (Matrix{T}, (d, d), "Ŝ"), Matrix{T}(undef, d, d))
     mul!(Ŝ, H, cross_cov)
     Ŝ .+= measurement_noise_dist.Σ
     K̂ = cross_cov
     rdiv!(K̂, cholesky!(Symmetric(Ŝ, :L)))
-    mul!(ensemble, K̂, residual)
+    copy!(ensemble, forecast_ensemble)
+    mul!(ensemble, K̂, residual, 1.0, 1.0)
     return ensemble
 end
 
