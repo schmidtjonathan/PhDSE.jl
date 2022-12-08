@@ -284,14 +284,13 @@ function enkf_matrixfree_correct!(
     c::FilteringCache,
     HX::AbstractMatrix{T},
     HA::AbstractMatrix{T},
+    A::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{T};
     R_inverse::Union{AbstractMatrix{T},Missing} = missing,
 ) where {T}
-    d, D = size(H)
-    N = get(c.entries, (typeof(D), size(D), "N")) do
-        error("Ensemble size N is missing in FilteringCache.")
-    end
+    d = size(HX, 1)
+    D, N  = size(A)
     Nsub1 = N - 1
     forecast_ensemble = get(c.entries, (Matrix{T}, (D, N), "forecast_ensemble")) do
         error("Cannot correct, no forecast ensemble in cache.")
