@@ -6,8 +6,6 @@
     cache = FilteringCache(μ₀, cholesky(Σ₀).U)
     @test haskey(cache.entries, (typeof(μ₀), size(μ₀), "mean"))
     @test haskey(cache.entries, (typeof(μ₀), size(μ₀), "predicted_mean"))
-    @test haskey(cache.entries, (typeof(Σ₀), size(Σ₀), "covariance"))
-    @test haskey(cache.entries, (typeof(Σ₀), size(Σ₀), "predicted_covariance"))
 
     kf_m = copy(μ₀)
     iip_sqrt_kf_m = copy(μ₀)
@@ -15,6 +13,13 @@
     kf_C = copy(Σ₀)
     iip_sqrt_kf_C = cholesky(Σ₀).U
     oop_sqrt_kf_C = cholesky(Σ₀).U
+
+    @test haskey(cache.entries, (typeof(oop_sqrt_kf_C), size(oop_sqrt_kf_C), "covariance"))
+    @test haskey(
+        cache.entries,
+        (typeof(oop_sqrt_kf_C), size(oop_sqrt_kf_C), "predicted_covariance"),
+    )
+
     kf_traj = [(copy(μ₀), copy(Σ₀))]
     iip_traj = [(copy(μ₀), copy(Σ₀))]
     oop_traj = [(copy(μ₀), copy(Σ₀))]
