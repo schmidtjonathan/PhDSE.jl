@@ -114,7 +114,6 @@ function enkf_matrixfree_correct(
 
     compute_P_inverse = !ismissing(R_inverse)
     if compute_P_inverse
-        @info "Matrix inversion lemma"
         # Implementation from the paper/preprint by Mandel; Section 4.2
         # uses the Matrix inversion lemma to be optimal for d >> N
         # -------------------------------------------------------------
@@ -197,20 +196,10 @@ function enkf_predict!(
         forecast_ensemble .+= u
     end
 
-    ens_mean =
-        get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
-    A = get!(
-        c.entries,
-        (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"),
-        similar(forecast_ensemble),
-    )
-
-    centered_ensemble!(A, ens_mean, forecast_ensemble)
-
     return forecast_ensemble
 end
 
-function HX_HA!(
+function A_HX_HA!(
     c::FilteringCache,
     H::AbstractMatrix{T},
     v::Union{AbstractVector{T},Missing} = missing,
@@ -228,10 +217,20 @@ function HX_HA!(
     if !ismissing(v)
         HX .+= v
     end
+
     ens_mean =
         get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
-    centered_ensemble!(HA, ens_mean, HX)
-    return HX, HA
+    A = get!(
+        c.entries,
+        (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"),
+        similar(forecast_ensemble),
+    )
+    centered_ensemble!(A, ens_mean, forecast_ensemble)
+
+    measured_ens_mean =
+        get!(c.entries, (Vector{T}, (D,), "measured_forecast_ensemble_mean"), Vector{T}(undef, D))
+    centered_ensemble!(HA, measured_ens_mean, HX)
+    return A, HX, HA
 end
 
 function enkf_correct!(
@@ -254,29 +253,14 @@ function enkf_correct!(
         (typeof(forecast_ensemble), size(forecast_ensemble), "ensemble"),
         similar(forecast_ensemble),
     )
-    ens_mean =
-        get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
-    A = get!(
-        c.entries,
-        (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"),
-    ) do
-        centered_ensemble!(similar(forecast_ensemble), ens_mean, forecast_ensemble)
-    end
 
-    # HX = get!(c.entries, (Matrix{T}, (d, N), "HX"), Matrix{T}(undef, d, N))
-    # # HA = get!(c.entries, (typeof(HX), size(HX), "HA"), similar(HX))
-    # mul!(HX, H, forecast_ensemble)
-    # if !ismissing(v)
-    #     HX .+= v
-    # end
-    # # centered_ensemble!(HA, ens_mean, HX)
-    HX, HA = HX_HA!(c, H, v)
+    A, HX, HA = A_HX_HA!(c, H, v)
 
     # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
     residual = get!(c.entries, (typeof(HX), size(HX), "residual"), similar(HX))
     Distributions.rand!(measurement_noise_dist, residual)
     residual .+= y
-    residual .-= fcache.HX
+    residual .-= HX
 
     C = get!(c.entries, (Matrix{T}, (d, d), "C"), Matrix{T}(undef, d, d))
     rdiv!(mul!(C, A, A'), Nsub1)
@@ -286,7 +270,7 @@ function enkf_correct!(
     mul!(Ŝ, H, cross_cov)
     Ŝ .+= measurement_noise_dist.Σ
     K̂ = cross_cov
-    rdiv!(K̂, cholesky!(Symmetric(S, :L)))
+    rdiv!(K̂, cholesky!(Symmetric(Ŝ, :L)))
     mul!(ensemble, K̂, residual)
     return ensemble
 end
@@ -317,9 +301,9 @@ function enkf_matrixfree_correct!(
     A = get!(
         c.entries,
         (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"),
-    ) do
-        centered_ensemble!(similar(forecast_ensemble), ens_mean, forecast_ensemble)
-    end
+        similar(forecast_ensemble),
+    )
+    centered_ensemble!(A, ens_mean, forecast_ensemble)
 
     # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
     residual = get!(c.entries, (typeof(HX), size(HX), "residual"), similar(HX))
@@ -405,3 +389,7 @@ function enkf_matrixfree_correct!(
     end
     return ensemble
 end
+
+export enkf_predict!
+export enkf_correct!
+export enkf_matrixfree_correct!
