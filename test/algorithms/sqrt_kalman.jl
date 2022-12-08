@@ -133,7 +133,10 @@
             lw = 3,
         )
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "kf_oop-vs-sqrtkf_iip-vs-sqrtkf_oop.png"))
+        savefig(
+            test_plot,
+            joinpath(mkpath("./out/"), "kf_oop-vs-sqrtkf_iip-vs-sqrtkf_oop.png"),
+        )
     end
     # for (k, v) in pairs(cache.entries)
     #     println("$k -> $(typeof(v)) of size $(size(v))")

@@ -40,7 +40,6 @@ const ENSEMBLE_SIZE = 2000
         push!(enkf_traj, (copy(enkf_m), copy(enkf_C)))
     end
 
-
     @test all([
         isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
         ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
@@ -102,7 +101,6 @@ const ENSEMBLE_SIZE = 2000
         savefig(test_plot, joinpath(mkpath("./out/"), "KF_oop-vs-standardEnKF_oop.png"))
     end
 end
-
 
 @testset "Standard EnKF (OOP) vs. O(d^3) OMF EnKF (OOP)" begin
     Random.seed!(1234)
@@ -361,7 +359,6 @@ end
     end
 end
 
-
 @testset "Standard EnKF (OOP) vs. Standard EnKF (IIP)" begin
     Random.seed!(1234)
 
@@ -373,11 +370,18 @@ end
     iip_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
 
     enkf_cache = FilteringCache(iip_ensemble)
-    @test haskey(enkf_cache.entries, (typeof(size(iip_ensemble, 2)), size(size(iip_ensemble, 2)), "N"))
+    @test haskey(
+        enkf_cache.entries,
+        (typeof(size(iip_ensemble, 2)), size(size(iip_ensemble, 2)), "N"),
+    )
     @test haskey(enkf_cache.entries, (typeof(iip_ensemble), size(iip_ensemble), "ensemble"))
-    @test haskey(enkf_cache.entries, (typeof(iip_ensemble), size(iip_ensemble), "forecast_ensemble"))
+    @test haskey(
+        enkf_cache.entries,
+        (typeof(iip_ensemble), size(iip_ensemble), "forecast_ensemble"),
+    )
 
-    @assert iip_ensemble == enkf_cache.entries[(typeof(iip_ensemble), size(iip_ensemble), "ensemble")]
+    @assert iip_ensemble ==
+            enkf_cache.entries[(typeof(iip_ensemble), size(iip_ensemble), "ensemble")]
 
     oop_m = copy(μ₀)
     iip_m = copy(μ₀)
@@ -398,7 +402,11 @@ end
             process_noise_dist(iip_m),
             u(iip_m),
         )
-        @assert iip_ensemble === enkf_cache.entries[(typeof(iip_ensemble), size(iip_ensemble), "forecast_ensemble")]
+        @assert iip_ensemble === enkf_cache.entries[(
+            typeof(iip_ensemble),
+            size(iip_ensemble),
+            "forecast_ensemble",
+        )]
         # @show oop_m
         # @show iip_m
         oop_m, oop_C = ensemble_mean_cov(oop_ensemble)
@@ -495,9 +503,6 @@ end
     end
 end
 
-
-
-
 @testset "Standard EnKF (IIP) vs. O(d^3) OMF EnKF (IIP) vs. O(N^3) OMF EnKF (IIP)" begin
     Random.seed!(1234)
 
@@ -562,10 +567,11 @@ end
             omf_centered_fens,
             measurement_noise_dist(y),
             y;
-            R_inverse=missing
+            R_inverse = missing,
         )
 
-        omf_invR_centered_fens, omf_invR_HX, omf_invR_HA = PhDSE.A_HX_HA!(omf_invR_cache, H(omf_invR_m), v(omf_invR_m))
+        omf_invR_centered_fens, omf_invR_HX, omf_invR_HA =
+            PhDSE.A_HX_HA!(omf_invR_cache, H(omf_invR_m), v(omf_invR_m))
         omf_invR_ensemble = enkf_matrixfree_correct!(
             omf_invR_cache,
             omf_invR_HX,
@@ -573,7 +579,7 @@ end
             omf_invR_centered_fens,
             measurement_noise_dist(y),
             y;
-            R_inverse=inv(R(y)),
+            R_inverse = inv(R(y)),
         )
 
         standard_m, standard_C = ensemble_mean_cov(standard_ensemble)
@@ -679,7 +685,10 @@ end
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
         savefig(
             test_plot,
-            joinpath(mkpath("./out/"), "standardEnKF_iip-vs-d3OMFEnKF_iip-vs-N3OMFEnKF_iip.png"),
+            joinpath(
+                mkpath("./out/"),
+                "standardEnKF_iip-vs-d3OMFEnKF_iip-vs-N3OMFEnKF_iip.png",
+            ),
         )
     end
 end

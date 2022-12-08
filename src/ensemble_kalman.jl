@@ -228,7 +228,11 @@ function A_HX_HA!(
     centered_ensemble!(A, ens_mean, forecast_ensemble)
 
     measured_ens_mean =
-        get!(c.entries, (Vector{T}, (d,), "measured_forecast_ensemble_mean"), Vector{T}(undef, d))
+        get!(
+            c.entries,
+            (Vector{T}, (d,), "measured_forecast_ensemble_mean"),
+            Vector{T}(undef, d),
+        )
     centered_ensemble!(HA, measured_ens_mean, HX)
     return A, HX, HA
 end
@@ -290,7 +294,7 @@ function enkf_matrixfree_correct!(
     R_inverse::Union{AbstractMatrix{T},Missing} = missing,
 ) where {T}
     d = size(HX, 1)
-    D, N  = size(A)
+    D, N = size(A)
     Nsub1 = N - 1
     forecast_ensemble = get(c.entries, (Matrix{T}, (D, N), "forecast_ensemble")) do
         error("Cannot correct, no forecast ensemble in cache.")

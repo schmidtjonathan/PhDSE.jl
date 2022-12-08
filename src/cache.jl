@@ -3,12 +3,10 @@ abstract type AbstractAlgCache end
 RightMatrixSquareRoot = Union{Diagonal,UpperTriangular,UnitUpperTriangular,UniformScaling}
 export RightMatrixSquareRoot
 
-
 struct FilteringCache
     entries::IdDict{Tuple{Type,Tuple,AbstractString},Union{Number,AbstractArray}}
-    FilteringCache(d::dT = IdDict()) where {dT <: IdDict} = new(d)
+    FilteringCache(d::dT = IdDict()) where {dT<:IdDict} = new(d)
 end
-
 
 function FilteringCache(initial_mean::AbstractVector, initial_covariance::AbstractMatrix)
     @info "Building KF Cache"
@@ -28,12 +26,11 @@ function FilteringCache(initial_mean::AbstractVector, initial_covariance::Abstra
     )
 end
 
-
 function FilteringCache(ensemble::AbstractMatrix)
     @info "Building EnKF Cache"
     ensemble_size = size(ensemble, 2)
     FilteringCache(
-        IdDict{Tuple{Type,Tuple,AbstractString},Union{AbstractArray, Number}}(
+        IdDict{Tuple{Type,Tuple,AbstractString},Union{AbstractArray,Number}}(
             (typeof(ensemble_size), size(ensemble_size), "N") => ensemble_size,
             (typeof(ensemble), size(ensemble), "forecast_ensemble") => similar(ensemble),
             (typeof(ensemble), size(ensemble), "ensemble") => copy(ensemble),
