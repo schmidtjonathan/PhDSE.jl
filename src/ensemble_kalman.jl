@@ -300,14 +300,6 @@ function enkf_matrixfree_correct!(
         (typeof(forecast_ensemble), size(forecast_ensemble), "ensemble"),
         similar(forecast_ensemble),
     )
-    # ens_mean =
-    #     get!(c.entries, (Vector{T}, (D,), "forecast_ensemble_mean"), Vector{T}(undef, D))
-    # A = get!(
-    #     c.entries,
-    #     (typeof(forecast_ensemble), size(forecast_ensemble), "centered_forecast_ensemble"),
-    #     similar(forecast_ensemble),
-    # )
-    # centered_ensemble!(A, ens_mean, forecast_ensemble)
 
     # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
     residual = get!(c.entries, (typeof(HX), size(HX), "residual"), similar(HX))
@@ -319,20 +311,17 @@ function enkf_matrixfree_correct!(
     if compute_P_inverse
         @info "iip r inv"
         # ALLOCATE / QUERY CACHES >>>
-        dxN_cache01 = get!(
-            c.entries, (typeof(residual), size(residual), "dxN_000"), similar(residual),
-        )
         dxN_cache02 = get!(
-            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_001"),
-            similar(dxN_cache01),
+            c.entries, (typeof(residual), size(residual), "dxN_001"),
+            similar(residual),
         )
         dxN_cache03 = get!(
-            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_002"),
-            similar(dxN_cache01),
+            c.entries, (typeof(residual), size(residual), "dxN_002"),
+            similar(residual),
         )
         dxN_cache04 = get!(
-            c.entries, (typeof(dxN_cache01), size(dxN_cache01), "dxN_003"),
-            similar(dxN_cache01),
+            c.entries, (typeof(residual), size(residual), "dxN_003"),
+            similar(residual),
         )
         NxN_cache01 = get!(
             c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N),
@@ -343,14 +332,14 @@ function enkf_matrixfree_correct!(
         # <<<
 
         # R⁻¹ (D - HX)
-        mul!(dxN_cache02, R_inverse, dxN_cache01)
+        mul!(dxN_cache02, R_inverse, residual)
 
         # (HA)' R⁻¹(D - HX)
         mul!(NxN_cache01, HA', dxN_cache02)
 
         # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
         #  -> R⁻¹(HA) / (N-1)
-        mul!(dxN_cache03, rdiv!(R_inverse, Nsub1), HA)
+        rdiv!(mul!(dxN_cache03, R_inverse, HA), Nsub1)
         #  -> (HA)'R⁻¹(HA) / (N-1)
         mul!(NxN_cache02, HA', dxN_cache03) # That's Q without the added Identity matrix
         #  -> I_N + (HA)'R⁻¹(HA) / (N-1)
@@ -363,21 +352,21 @@ function enkf_matrixfree_correct!(
         ldiv!(cholesky!(Symmetric(NxN_cache02)), NxN_cache01)
 
         # K := (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
-        ldiv!(Nsub1, mul!(dxN_cache02, HA, NxN_cache01))
+        rdiv!(mul!(dxN_cache02, HA, NxN_cache01), Nsub1)
 
         # (D - HX) - K
-        copy!(dxN_cache01, residual)
-        dxN_cache01 .-= dxN_cache02
+        # copy!(dxN_cache01, residual)
+        residual .-= dxN_cache02
 
-        # R⁻¹((D - HX) - K)
-        mul!(dxN_cache04, R_inverse, dxN_cache01)
+        # R⁻¹((D - HX) - K) = P⁻¹(D - HX)
+        mul!(dxN_cache04, R_inverse, residual)
 
         # (HA)' R⁻¹((D - HX) - K)
         mul!(NxN_cache02, HA', dxN_cache04)
 
         # Xᵃ = Xᶠ + A / (N-1) (HA)' R⁻¹((D - HX) - K)
         copy!(ensemble, forecast_ensemble)
-        mul!(ensemble, ldiv!(Nsub1, A), NxN_cache02, 1.0, 1.0)
+        mul!(ensemble, rdiv!(A, Nsub1), NxN_cache02, 1.0, 1.0)
         return ensemble
     else
         @info "iip standard"
