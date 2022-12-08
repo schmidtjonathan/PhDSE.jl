@@ -3,7 +3,7 @@
     upper_sqrt_to_mat(MU::UpperTriangular) = MU' * MU
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
-    cache = FilteringCache(initial_mean = μ₀, initial_covariance = cholesky(Σ₀).U)
+    cache = FilteringCache(μ₀, cholesky(Σ₀).U)
     @test haskey(cache.entries, (typeof(μ₀), size(μ₀), "mean"))
     @test haskey(cache.entries, (typeof(μ₀), size(μ₀), "predicted_mean"))
     @test haskey(cache.entries, (typeof(Σ₀), size(Σ₀), "covariance"))
