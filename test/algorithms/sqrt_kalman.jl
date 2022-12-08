@@ -1,4 +1,4 @@
-@testset "Kalman filter (OOP) vs. Sqrt-KF (IIP + OOP)" begin
+@testset "Kalman filter (OOP) vs. SqrtKF (IIP) vs. SqrtKF (OOP)" begin
     Random.seed!(1234)
     upper_sqrt_to_mat(MU::UpperTriangular) = MU' * MU
 
@@ -83,7 +83,7 @@
             1:length(iip_means),
             [m[1] for m in iip_means],
             ribbon = [s[1] for s in iip_stds],
-            label = "iip",
+            label = "sqrt iip",
             color = 3,
             lw = 3,
         )
@@ -92,7 +92,7 @@
             1:length(iip_means),
             [m[2] for m in iip_means],
             ribbon = [s[2] for s in iip_stds],
-            label = "iip",
+            label = "sqrt iip",
             color = 3,
             lw = 3,
         )
@@ -101,7 +101,7 @@
             1:length(oop_means),
             [m[1] for m in oop_means],
             ribbon = [s[1] for s in oop_stds],
-            label = "oop",
+            label = "sqrt oop",
             color = 4,
             lw = 3,
         )
@@ -110,7 +110,7 @@
             1:length(oop_means),
             [m[2] for m in oop_means],
             ribbon = [s[2] for s in oop_stds],
-            label = "oop",
+            label = "sqrt oop",
             color = 4,
             lw = 3,
         )
@@ -133,7 +133,7 @@
             lw = 3,
         )
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "sqrt_kf_test_output.png"))
+        savefig(test_plot, joinpath(mkpath("./out/"), "kf_oop-vs-sqrtkf_iip-vs-sqrtkf_oop.png"))
     end
     # for (k, v) in pairs(cache.entries)
     #     println("$k -> $(typeof(v)) of size $(size(v))")

@@ -1,4 +1,4 @@
-@testset "Kalman filter IIP vs. OOP" begin
+@testset "Kalman filter (IIP) vs. Kalman filter (OOP)" begin
     Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -78,14 +78,14 @@
             lw = 3,
         )
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "kf_test_output.png"))
+        savefig(test_plot, joinpath(mkpath("./out/"), "kf_oop-vs-kf_iip.png"))
     end
     # for (k, v) in pairs(cache.entries)
     #     println("$k -> $(typeof(v)) of size $(size(v))")
     # end
 end
 
-@testset "Kalman update vs. Joseph update" begin
+@testset "Kalman filter (OOP) vs. Kalman filter (Joseph) (OOP)" begin
     Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -167,6 +167,6 @@ end
             lw = 3,
         )
         test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "kf_joseph_test_output.png"))
+        savefig(test_plot, joinpath(mkpath("./out/"), "kf_oop-vs-kfjoseph_oop.png"))
     end
 end
