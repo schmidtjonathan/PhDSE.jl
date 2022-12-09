@@ -1,3 +1,18 @@
+"""
+    kf_predict(μ, Σ, Φ, Q, [u])
+
+Prediction step in a Kalman filter.
+
+For a numerically more stable version of the Kalman filter, have a look
+at the square-root Kalman filter at [`sqrt_kf_predict`](@ref).
+
+# Arguments
+- `μ::AbstractVector`: the current filtering mean
+- `Σ::AbstractMatrix`: the current filtering covariance matrix
+- `Φ::AbstractMatrix`: transition matrix, i.e. dynamics of the state space model
+- `Q::AbstractMatrix`: transition covariance, i.e. process noise of the state space model
+- `u::AbstractVector` (optional): affine control input to the dynamics
+"""
 function kf_predict(
     μ::AbstractVector{T},
     Σ::AbstractMatrix{T},
@@ -13,6 +28,24 @@ function kf_predict(
     return μ⁻, Σ⁻
 end
 
+
+"""
+    kf_correct(μ⁻, Σ⁻, H, R, y, [v])
+
+Correction step in a Kalman filter.
+
+For a numerically more stable version of the Kalman filter, either
+have a look at the Joseph-form implementation [`kf_joseph_correct`](@ref) or
+at the square-root Kalman filter at [`sqrt_kf_correct`](@ref).
+
+# Arguments
+- `μ⁻::AbstractVector`: the current predicted mean
+- `Σ⁻::AbstractMatrix`: the current predicted covariance matrix
+- `H::AbstractMatrix`: measurement matrix of the state space model
+- `R::AbstractMatrix`: measurement covariance, i.e. measurement noise of the state space model
+- `y::AbstractVector`: a measurement (data point)
+- `v::AbstractVector` (optional): affine control input to the measurements
+"""
 function kf_correct(
     μ⁻::AbstractVector{T},
     Σ⁻::AbstractMatrix{T},
@@ -33,6 +66,24 @@ function kf_correct(
     return μ, Σ
 end
 
+
+
+"""
+    kf_joseph_correct(μ⁻, Σ⁻, H, R, y, [v])
+
+Joseph-form correction step in a Kalman filter.
+
+This method is numerically more stable than the standard [`kf_correct`](@ref) and
+otherwise equivalent.
+
+# Arguments
+- `μ⁻::AbstractVector`: the current predicted mean
+- `Σ⁻::AbstractMatrix`: the current predicted covariance matrix
+- `H::AbstractMatrix`: measurement matrix of the state space model
+- `R::AbstractMatrix`: measurement covariance, i.e. measurement noise of the state space model
+- `y::AbstractVector`: a measurement (data point)
+- `v::AbstractVector` (optional): affine control input to the measurements
+"""
 function kf_joseph_correct(
     μ⁻::AbstractVector{T},
     Σ⁻::AbstractMatrix{T},
@@ -60,15 +111,15 @@ export kf_correct
 export kf_joseph_correct
 
 """
-    kf_predict!(fcache, Φ, Q, [u])
+    kf_predict!(c, Φ, Q, [u])
 
-Efficient and in-place implementation of the prediction step in a Kalman filter.
+In-place prediction step in a Kalman filter.
 
 For a numerically more stable version of the Kalman filter, have a look
 at the square-root Kalman filter at [`sqrt_kf_predict!`](@ref).
 
 # Arguments
-- `fcache::KFCache`: a cache holding memory-heavy objects
+- `c::FilteringCache`: Cache holding pre-allocated matrices and vectors
 - `Φ::AbstractMatrix`: transition matrix, i.e. dynamics of the state space model
 - `Q::AbstractMatrix`: transition covariance, i.e. process noise of the state space model
 - `u::AbstractVector` (optional): affine control input to the dynamics
@@ -113,20 +164,23 @@ function kf_predict!(
     return μ⁻, Σ⁻
 end
 
+
 """
-    kf_correct!(fcache, H, R, y, [v])
+    kf_correct!(c, H, R, y, [v])
 
-Efficient and in-place implementation of the correction step in a Kalman filter.
+In-place correction step in a Kalman filter.
 
-For a numerically more stable version of the Kalman filter, have a look
-at the square-root Kalman filter at [`sqrt_kf_correct!`](@ref).
+For a numerically more stable version of the Kalman filter,
+have a look at the square-root Kalman filter at [`sqrt_kf_correct!`](@ref).
+
+> [2022-12-09] There is currently no in-place implementation of the Joseph-form correction.
 
 # Arguments
-- `fcache::KFCache`: a cache holding memory-heavy objects
+- `c::FilteringCache`: Cache holding pre-allocated matrices and vectors
 - `H::AbstractMatrix`: measurement matrix of the state space model
-- `R::AbstractMatrix`: measurement noise covariance of the state space model
+- `R::AbstractMatrix`: measurement covariance, i.e. measurement noise of the state space model
 - `y::AbstractVector`: a measurement (data point)
-- `v::AbstractVector` (optional): affine control input to the measurement
+- `v::AbstractVector` (optional): affine control input to the measurements
 """
 function kf_correct!(
     c::FilteringCache,
