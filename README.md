@@ -41,18 +41,16 @@ or
 
 
 
-## Example: Car-tracking
+## Example with non-linear dynamics
 
-> Example adapted from Example 4.3 in
-> "Bayesian Filtering and Smoothing", Simo Särkka, Cambridge University Press, 2013.
 ### Build the state-space model...
 
 <details>
 <summary><b>Details ...</b></summary>
 
 ##### We define:
-* The **dynamics** tracking position and velocities, each in x- & y-position.
-* The **observation model** measures the position of the vehicle in x- & y-dimension
+* The **dynamics** following the vector field of the FitzHugh-Nagumo equations
+* The **observation model** measures the first component of the system
 * The posterior is computed using a Kalman filter.
 
 </details>
@@ -60,27 +58,29 @@ or
 ##### Build the state-space model
 
 ```julia
-dt = 0.1
-s1, s2 = 0.5, 0.5
-q1, q2 = 1, 1
+d, D = 1, 2
+μ₀ = [-1.0, 1.0]
+Σ₀ = [0.01 0.0
+    0.0 0.01]
+a, b, c = 0.2, 0.2, 3.0
 
-A = [1 0 dt 0;
-     0 1 0 dt;
-     0 0 1 0;
-     0 0 0 1]
+function f(x)
+    x1, x2 = x
+    return [
+        x1 + 0.1 * (c * (x1 - x1^3 / 3 + x2)),
+        x2 + 0.1 * (-(1 / c) * (x1 - a - b * x2)),
+    ]
+end
+function h(x)
+    return x[1:1]
+end
 
-Q = [q1*dt^3/3 0 q1*dt^2/2 0;
-     0 q2*dt^3/3 0 q2*dt^2/2;
-     q1*dt^2/2 0 q1*dt 0;
-     0 q2*dt^2/2 0 q2*dt]
-
-H = [1 0 0 0; 0 1 0 0]
-
-d, D = size(H)
-
-R = [s1^2 0; 0 s2^2]
-
-μ₀, Σ₀ = zeros(D), 2 * Matrix(1e-5 * I, D, D)
+A(x) = ForwardDiff.jacobian(f, x)
+Q(x) = Matrix{Float64}(0.001 * I(D))
+H(x) = Matrix{Float64}(I(D))[1:1, :]
+R(x) = Matrix{Float64}(I(d))
+u(x) = f(x) - A(x) * x
+v(x) = zeros(d)
 ```
 
 ##### Generate data
@@ -88,7 +88,8 @@ R = [s1^2 0; 0 s2^2]
 > The ground-truth trajectory, as well as the noisy observations come from an auxiliary function `simulate`ing the dynamics. [Please have a look here](https://schmidtjonathan.github.io/PhDSE.jl/dev/examples/kalman_filter/), where you can also find **more examples**.
 
 ```julia
-ground_truth, data = simulate(A, Q, zeros(D), H, R, zeros(d), μ₀, Σ₀, 200, rng=MersenneTwister(3))
+N = 200
+ground_truth, observations = simulate_nonlinear(f, Q, h, R, μ₀, Σ₀, N)
 ```
 
 ### Allocate memory
@@ -97,18 +98,31 @@ In order to save time that would otherwise be necessary to allocate memory in th
 > This is of course only really relevant for larger state spaces. Here, it's just used to teach the usage.
 
 ```julia
-sol = [(μ₀, sqrt.(diag(Σ₀)))]
-fcache = KFCache(D, d)
-write_moments!(fcache; μ = μ₀, Σ = Σ₀)
+cache = init_cache_moments!(FilteringCache(), μ₀, Σ₀)
+kf_traj = [(copy(μ₀), copy(Σ₀))]
 ```
 
 ### Finally, run the algorithm ...
 
 ```julia
-for y in data
-    kf_predict!(fcache, A, Q)
-    kf_correct!(fcache, H, R, y)
-    push!(sol, (copy(fcache.μ), sqrt.(diag(fcache.Σ))))
+for y in observations
+    kf_m, kf_C = kf_traj[end]
+    kf_m, kf_C = kf_predict!(
+        cache,
+        A(kf_m),
+        Q(kf_m),
+        u(kf_m),
+    )
+
+    kf_m, kf_C = kf_correct!(
+        cache,
+        H(kf_m),
+        R(y),
+        y,
+        v(kf_m),
+    )
+
+    push!(kf_traj, (copy(kf_m), copy(kf_C)))
 end
 ```
 
@@ -118,15 +132,31 @@ end
 <summary><b>Show code</b></summary>
 
 ```julia
-scatter([y[1] for y in data], [y[2] for y in data], label="Measurements", markersize=2)
-plot!([y[1] for y in ground_truth], [y[2] for y in ground_truth], label="True Location", linewidth=4, alpha=0.8)
+kf_means = [m for (m, C) in kf_traj]
+kf_stds = [2sqrt.(diag(C)) for (m, C) in kf_traj]
+
+plot_x1 = scatter(1:length(observations), [o[1] for o in observations], color = 1, label="data")
+plot!(plot_x1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.6)
+plot_x2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.6)
 plot!(
-    [y[1] for (y, s) in sol], [y[2] for (y, s) in sol],
-    label="Filter Estimate",
-    linewidth=4,
-    alpha=0.8,
-    legend=:bottomright,
+    plot_x1,
+    1:length(kf_means),
+    [m[1] for m in kf_means],
+    ribbon = [s[1] for s in kf_stds],
+    label = "KF mean",
+    color = 3,
+    lw = 3,
 )
+plot!(
+    plot_x2,
+    1:length(kf_means),
+    [m[2] for m in kf_means],
+    ribbon = [s[2] for s in kf_stds],
+    label = "KF mean",
+    color = 3,
+    lw = 3,
+)
+res_plot = plot(plot_x1, plot_x2, layout = (1, 2))
 ```
 
 </details>
