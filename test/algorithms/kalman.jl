@@ -39,8 +39,8 @@
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        test_plot2 =
-            scatter(1:length(observations), [o[2] for o in observations], color = 2)
+        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt")
+        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt")
         plot!(
             test_plot1,
             1:length(iip_means),
@@ -127,9 +127,9 @@ end
         joseph_stds = [2sqrt.(diag(C)) for (m, C) in joseph_traj]
         using Plots
         test_plot1 =
-            scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        test_plot2 =
-            scatter(1:length(observations), [o[2] for o in observations], color = 2)
+            scatter(2:length(observations)+1, [o[1] for o in observations], color = 1)
+        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt")
+        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt")
         plot!(
             test_plot1,
             1:length(standard_means),
