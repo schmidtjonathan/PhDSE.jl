@@ -74,8 +74,8 @@
         iip_means = [m for (m, C) in iip_traj]
         oop_means = [m for (m, C) in oop_traj]
         kf_stds = [2sqrt.(diag(C)) for (m, C) in kf_traj]
-        iip_stds = [2diag(C) for (m, C) in iip_traj]
-        oop_stds = [2diag(C) for (m, C) in oop_traj]
+        iip_stds = [2sqrt.(diag(C)) for (m, C) in iip_traj]
+        oop_stds = [2sqrt.(diag(C)) for (m, C) in oop_traj]
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
