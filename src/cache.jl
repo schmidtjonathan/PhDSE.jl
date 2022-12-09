@@ -1,207 +1,76 @@
 abstract type AbstractAlgCache end
 
-RightMatrixSquareRoot = Union{Diagonal,UpperTriangular,UnitUpperTriangular,UniformScaling}
-export RightMatrixSquareRoot
-
-Base.@kwdef struct KFCache{vT<:AbstractVector,mT<:AbstractMatrix} <: AbstractAlgCache
-    #=
-        D : state dimension
-        d : measurement dimension
-    =#
-
-    # Predicted moments
-    μ⁻::vT                      # D
-    Σ⁻::mT                      # D x D
-    # Corrected moments
-    μ::vT                       # D
-    Σ::mT                       # D x D
-
-    # | Auxiliary
-    # --| Prediction step
-    # ----| Intermediate matmul result in prediction step
-    predict_cache::mT           # D x D
-    # --| Correction step
-    # --| residual vector
-    residual_cache::vT          # d
-    # ----| Evaluation of the vector field
-    obs_cache::vT                # d
-    # ----| S matrix
-    S_cache::mT                 # d x d
-    # ----| Kalman gain K
-    K_cache::mT               # D x d
-    # ----| Intermediate matmul result in correction step
-    correct_cache::mT           # d x D
+struct FilteringCache
+    entries::IdDict{Tuple{Type,Tuple,AbstractString},Union{Number,AbstractArray}}
+    FilteringCache() =
+        new(IdDict{Tuple{Type,Tuple,AbstractString},Union{Number,AbstractArray}}())
 end
 
-function KFCache(state_dim::Int64, measurement_dim::Int64)
-    return KFCache(
-        μ⁻ = zeros(state_dim),
-        Σ⁻ = zeros(state_dim, state_dim),
-        μ = zeros(state_dim),
-        Σ = zeros(state_dim, state_dim),
-        predict_cache = zeros(state_dim, state_dim),
-        residual_cache = zeros(measurement_dim),
-        obs_cache = zeros(measurement_dim),
-        S_cache = zeros(measurement_dim, measurement_dim),
-        K_cache = zeros(state_dim, measurement_dim),
-        correct_cache = zeros(state_dim, measurement_dim),
-    )
-end
-
-export KFCache
-
-# ==== SQRT Kalman filter
-
-Base.@kwdef struct SqrtKFCache{vT<:AbstractVector,mT<:AbstractMatrix,psdT} <:
-                   AbstractAlgCache
-    #=
-        D : state dimension
-        d : measurement dimension
-    =#
-
-    # Predicted moments
-    μ⁻::vT                      # D
-    Σ⁻::psdT                      # D x D
-    # Corrected moments
-    μ::vT                       # D
-    Σ::psdT                       # D x D
-
-    # | Auxiliary
-    cache_2DxD::mT
-    cache_dpDxdpD::mT
-    zero_cache_dxD::mT
-    obs_cache::vT                # d
-end
-
-function SqrtKFCache(state_dim::Int64, measurement_dim::Int64)
-    return SqrtKFCache(
-        μ⁻ = zeros(state_dim),
-        Σ⁻ = UpperTriangular(zeros(state_dim, state_dim)),
-        μ = zeros(state_dim),
-        Σ = UpperTriangular(zeros(state_dim, state_dim)),
-        cache_2DxD = zeros(2state_dim, state_dim),
-        cache_dpDxdpD = zeros(state_dim + measurement_dim, state_dim + measurement_dim),
-        zero_cache_dxD = zeros(measurement_dim, state_dim),
-        obs_cache = zeros(measurement_dim),
-    )
-end
-
-export SqrtKFCache
-
-# ==== Ensemble Kalman filter
-
-Base.@kwdef struct EnKFCache{
-    dT1<:MultivariateDistribution,
-    dT2<:MultivariateDistribution,
-    mT<:AbstractMatrix,
-    vT<:AbstractVector,
-} <: AbstractAlgCache
-    #=
-    D : state dimension
-    d : measurement dimension
-    N : ensemble size
-    =#
-
-    process_noise_dist::dT1
-    observation_noise_dist::dT2
-
-    ensemble::mT                 # D x N
-    forecast_ensemble::mT        # D x N
-    mX::vT                       # D
-    A::mT                        # D x N
-    HX::mT                       # d x N
-    HA::mT                       # d x N
-
-    dxN_cache01::mT              # d x N
-    dxN_cache02::mT              # d x N
-    dxN_cache03::mT              # d x N
-    dxN_cache04::mT              # d x N
-    NxN_cache01::mT              # N x N
-    NxN_cache02::mT              # N x N
-    DxN_cache01::mT              # D x N
-end
-
-function EnKFCache(
-    state_dim::Int64,
-    measurement_dim::Int64;
-    ensemble_size::Int64,
-    process_noise_dist::MvNormal,
-    observation_noise_dist::MvNormal,
-)
-    return EnKFCache(
-        process_noise_dist = process_noise_dist,
-        observation_noise_dist = observation_noise_dist,
-        ensemble = zeros(state_dim, ensemble_size),
-        forecast_ensemble = zeros(state_dim, ensemble_size),
-        mX = zeros(state_dim),
-        A = zeros(state_dim, ensemble_size),
-        HX = zeros(measurement_dim, ensemble_size),
-        HA = zeros(measurement_dim, ensemble_size),
-        dxN_cache01 = zeros(measurement_dim, ensemble_size),
-        dxN_cache02 = zeros(measurement_dim, ensemble_size),
-        dxN_cache03 = zeros(measurement_dim, ensemble_size),
-        dxN_cache04 = zeros(measurement_dim, ensemble_size),
-        NxN_cache01 = zeros(ensemble_size, ensemble_size),
-        NxN_cache02 = zeros(ensemble_size, ensemble_size),
-        DxN_cache01 = zeros(state_dim, ensemble_size),
-    )
-end
-
-export EnKFCache
-
-function write_moments!(cache::KFCache; μ = missing, Σ = missing)
-    if !ismissing(μ)
-        size(μ) == size(cache.μ) || error(
-            "Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.μ)).",
-        )
-        copy!(cache.μ, μ)
-    end
-    if !ismissing(Σ)
-        size(Σ) == size(cache.Σ) || error(
-            "Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.Σ)).",
-        )
-        copy!(cache.Σ, Σ)
-    end
-    return cache
-end
-
-function write_moments!(cache::SqrtKFCache; μ = missing, Σ = missing)
-    if !ismissing(μ)
-        size(μ) == size(cache.μ) || error(
-            "Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.μ)).",
-        )
-        copy!(cache.μ, μ)
-    end
-    if !ismissing(Σ)
-        size(Σ) == size(cache.Σ) || error(
-            "Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.Σ)).",
-        )
-        if Σ isa RightMatrixSquareRoot
-            copy!(cache.Σ, Σ)
-        elseif Σ isa Matrix
-            U = cholesky(Σ).U
-            copy!(cache.Σ, U)
-        else
-            error("Cannot set covariance of type $(typeof(Σ)) in SqrtKFCache.")
+function Base.getindex(c::FilteringCache, key::AbstractString)
+    ret = missing
+    ctr = 0
+    for (k, v) in c.entries
+        tp, sz, id_string = k
+        if id_string == key
+            if ctr > 0
+                error("Found duplicate key in cache!")
+            end
+            ctr += 1
+            ret = c.entries[k]
         end
     end
-    return cache
-end
-
-function write_moments!(cache::EnKFCache; μ = missing, Σ = missing)
-    if ismissing(μ) || ismissing(Σ)
-        error("Need both μ and Σ to be provided to set ensemble in EnKFCache.")
+    if ismissing(ret)
+        throw(KeyError(key))
     end
-    size(μ) == (size(cache.ensemble, 1),) || error(
-        "Cannot write mean of size $(size(μ)) to cache entry of size $(size(cache.ensemble)).",
-    )
-    size(Σ) == (size(cache.ensemble, 1), size(cache.ensemble, 1)) || error(
-        "Cannot write cov of size $(size(Σ)) to cache entry of size $(size(cache.ensemble)).",
-    )
-    N = size(cache.ensemble, 2)
-    ens = rand(MvNormal(μ, Σ), N)
-    copy!(cache.ensemble, ens)
-    return cache
+    return ret
 end
 
-export write_moments!
+function init_cache_moments!(
+    c::FilteringCache,
+    initial_mean::mT,
+    initial_covariance::CT,
+) where {mT<:AbstractArray,CT<:AbstractArray}
+    # Set initial (filtering) moments
+    setindex!(
+        c.entries, copy(initial_mean), (typeof(initial_mean), size(initial_mean), "mean"),
+    )
+    setindex!(
+        c.entries, copy(initial_covariance),
+        (typeof(initial_covariance), size(initial_covariance), "covariance"),
+    )
+    # Allocate memory for predicted moments
+    setindex!(
+        c.entries, similar(initial_mean),
+        (typeof(initial_mean), size(initial_mean), "predicted_mean"),
+    )
+    setindex!(
+        c.entries, similar(initial_covariance),
+        (typeof(initial_covariance), size(initial_covariance), "predicted_covariance"),
+    )
+    return c
+end
+
+function init_cache_ensemble!(
+    c::FilteringCache,
+    initial_ensemble::eT,
+) where {eT<:AbstractArray}
+    ensemble_size = size(initial_ensemble, 2)
+    setindex!(
+        c.entries, ensemble_size, (typeof(ensemble_size), size(ensemble_size), "N"),
+    )
+    # Set initial (filtering) ensemble
+    setindex!(
+        c.entries, copy(initial_ensemble),
+        (typeof(initial_ensemble), size(initial_ensemble), "ensemble"),
+    )
+    # Allocate memory for the forecast ensemble
+    setindex!(
+        c.entries, similar(initial_ensemble),
+        (typeof(initial_ensemble), size(initial_ensemble), "forecast_ensemble"),
+    )
+    return c
+end
+
+export FilteringCache
+export init_cache_moments!
+export init_cache_ensemble!

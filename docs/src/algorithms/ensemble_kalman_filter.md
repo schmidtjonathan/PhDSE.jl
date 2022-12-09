@@ -7,8 +7,37 @@
 
 ### Methods
 
+# EnKF Prediction
 ```@docs
+enkf_predict
 enkf_predict!
+```
+
+# EnKF Correction
+```@docs
+enkf_correct
 enkf_correct!
-omf_enkf_correct!
+```
+
+### Observation-matrix-free version
+```@docs
+enkf_matrixfree_correct
+enkf_matrixfree_correct!
+```
+
+# Auxiliary methods
+### Compute moments from an ensemble
+```@docs
+ensemble_mean
+ensemble_mean!
+centered_ensemble
+centered_ensemble!
+ensemble_cov
+ensemble_mean_cov
+ensemble_mean_cov!
+```
+
+### Misc.
+```@docs
+PhDSE.A_HX_HA!
 ```

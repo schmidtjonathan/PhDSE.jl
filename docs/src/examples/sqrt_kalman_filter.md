@@ -1,100 +1,140 @@
-# Square-root Kalman filter for car tracking
-
-From "Bayesian Filtering and Smoothing" [1], example 4.3.
+# Square-root Kalman filter for non-linear dynamics
 
 ```@example 1
 using LinearAlgebra
 using Random
 using Distributions
-
+using ForwardDiff
 using Plots
 
 using PhDSE
 ```
 
-First, set up the state space model.
+First, define a function that allows us to draw samples from the state-space model.
 
 ```@example 1
-function simulate(Φ, Q, u, H, R, v, μ₀, Σ₀, N; rng = Random.GLOBAL_RNG)
+function simulate_nonlinear(
+    f::Function,
+    Q,
+    h::Function,
+    R,
+    μ₀,
+    Σ₀,
+    N::Int;
+    rng = Random.GLOBAL_RNG,
+)
     x = rand(rng, MvNormal(μ₀, Σ₀))
     states = [x]
     observations = []
 
     for i in 1:N
-        push!(states, rand(rng, MvNormal(Φ * states[end] + u, Q)))
-        push!(observations, rand(rng, MvNormal(H * states[end] + v, R)))
+        push!(states, rand(rng, MvNormal(f(states[end]), Q(x))))
+        push!(observations, rand(rng, MvNormal(h(states[end]), R(x))))
     end
     return states, observations
 end
 
+upper_sqrt_to_mat(MU::UpperTriangular) = MU' * MU
 
-dt = 0.1
-s1, s2 = 0.5, 0.5
-q1, q2 = 1, 1
+nothing  # hide
+```
 
-A = [1 0 dt 0;
-     0 1 0 dt;
-     0 0 1 0;
-     0 0 0 1]
+Then, define the actual state-space model:
 
-Q = [q1*dt^3/3 0 q1*dt^2/2 0;
-     0 q2*dt^3/3 0 q2*dt^2/2;
-     q1*dt^2/2 0 q1*dt 0;
-     0 q2*dt^2/2 0 q2*dt]
+```@example 1
+d, D = 1, 2
+μ₀ = [-1.0, 1.0]
+Σ₀ = [0.01 0.0
+    0.0 0.01]
+a, b, c = 0.2, 0.2, 3.0
 
-sqrt_Q = cholesky(Q).U
+function f(x)
+    x1, x2 = x
+    return [
+        x1 + 0.1 * (c * (x1 - x1^3 / 3 + x2)),
+        x2 + 0.1 * (-(1 / c) * (x1 - a - b * x2)),
+    ]
+end
+function h(x)
+    return x[1:1]
+end
 
-H = [1 0 0 0; 0 1 0 0]
+A(x) = ForwardDiff.jacobian(f, x)
+Q(x) = Matrix{Float64}(0.001 * I(D))
+H(x) = Matrix{Float64}(I(D))[1:1, :]
+R(x) = Matrix{Float64}(I(d))
+u(x) = f(x) - A(x) * x
+v(x) = zeros(d)
 
-d, D = size(H)
-
-R = [s1^2 0; 0 s2^2]
-sqrt_R = cholesky(R).U
-
-μ₀, Σ₀ = zeros(D), 2 * Matrix(1e-5 * I, D, D)
-nothing # hide
+nothing  # hide
 ```
 
 Next, generate an example state trajectory and according measurements.
 
 ```@example 1
-ground_truth, data = simulate(A, Q, zeros(D), H, R, zeros(d), μ₀, Σ₀, 200, rng=MersenneTwister(3))
-nothing # hide
+N = 200
+ground_truth, observations = simulate_nonlinear(f, Q, h, R, μ₀, Σ₀, N)
+nothing  # hide
 ```
 
-Compute the filtering posterior.
+
+Compute the filtering posterior...
 
 ```@example 1
-sol = [(μ₀, sqrt.(diag(Σ₀)))]
-fcache = SqrtKFCache(D, d)
-write_moments!(fcache; μ = μ₀, Σ = Σ₀)
+cache = init_cache_moments!(FilteringCache(), μ₀, cholesky(Σ₀).U)
+kf_traj = [(copy(μ₀), copy(Σ₀))]
+for y in observations
+    kf_m, kf_C = kf_traj[end]
+    kf_sqrt_C = cholesky(kf_C).U
+    kf_m, kf_sqrt_C = sqrt_kf_predict!(
+        cache,
+        A(kf_m),
+        cholesky(Q(kf_m)).U,
+        u(kf_m),
+    )
 
-for y in data
-    sqrt_kf_predict!(fcache, A, sqrt_Q)
-    sqrt_kf_correct!(fcache, H, sqrt_R, y)
-    push!(sol, (copy(fcache.μ), sqrt.(diag(Matrix(fcache.Σ)))))
+    kf_m, kf_sqrt_C = sqrt_kf_correct!(
+        cache,
+        H(kf_m),
+        cholesky(R(y)).U,
+        y,
+        v(kf_m),
+    )
+
+    push!(kf_traj, (copy(kf_m), upper_sqrt_to_mat(kf_sqrt_C)))
 end
-nothing # hide
+nothing  # hide
 ```
 
-Finally, plot the results.
-
+... and plot the results:
 ```@example 1
-scatter([y[1] for y in data], [y[2] for y in data], label="Measurements", markersize=2)
-plot!([y[1] for y in ground_truth], [y[2] for y in ground_truth], label="True Location", linewidth=4, alpha=0.8)
+kf_means = [m for (m, C) in kf_traj]
+kf_stds = [2sqrt.(diag(C)) for (m, C) in kf_traj]
+
+plot_x1 = scatter(1:length(observations), [o[1] for o in observations], color = 1, label="data")
+plot!(plot_x1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.6)
+plot_x2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.6)
 plot!(
-    [y[1] for (y, s) in sol], [y[2] for (y, s) in sol],
-    label="Filter Estimate",
-    linewidth=4,
-    alpha=0.8,
-    legend=:bottomright,
+    plot_x1,
+    1:length(kf_means),
+    [m[1] for m in kf_means],
+    ribbon = [s[1] for s in kf_stds],
+    label = "Sqrt-KF mean",
+    color = 3,
+    lw = 3,
 )
-savefig("sqrt_kalman_filter_example.svg")
-nothing # hide
+plot!(
+    plot_x2,
+    1:length(kf_means),
+    [m[2] for m in kf_means],
+    ribbon = [s[2] for s in kf_stds],
+    label = "Sqrt-KF mean",
+    color = 3,
+    lw = 3,
+)
+res_plot = plot(plot_x1, plot_x2, layout = (1, 2))
+savefig(res_plot, "sqrt_kalman_filter_example.svg")
+nothing  # hide
 ```
 
 ![](sqrt_kalman_filter_example.svg)
-
-
-## References
-[1] "Bayesian Filtering and Smoothing", Simo Särkka, Cambridge University Press, 2013.
