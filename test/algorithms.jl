@@ -34,7 +34,7 @@ end
 stack(x) = copy(reduce(hcat, x)')
 
 function filtering_setup()
-    d, D = 2, 2
+    d, D = 1, 2
     μ₀ = [-1.0, 1.0]
     Σ₀ = [0.01 0.0
         0.0 0.01]
@@ -48,12 +48,12 @@ function filtering_setup()
         ]
     end
     function h(x)
-        return copy(x)
+        return x[1:1]
     end
 
     A(x) = ForwardDiff.jacobian(f, x)
     Q(x) = Matrix{Float64}(0.001 * I(D))
-    H(x) = Matrix{Float64}(I(d))
+    H(x) = Matrix{Float64}(I(D))[1:1, :]
     R(x) = Matrix{Float64}(I(d))
     u(x) = f(x) - A(x) * x
     v(x) = zeros(d)
