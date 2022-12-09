@@ -1,10 +1,33 @@
+"""
+    ensemble_mean(ens)
+
+Compute the mean ``\\bar{\\mathrm{X}}`` of an ensemble of states ``\\mathrm{X} \\in \\mathbb{R}^{D \\times N}``
+"""
 ensemble_mean(ens::AbstractMatrix) = vec(sum(ens, dims = 2)) / size(ens, 2)
+
+"""
+    centered_ensemble(ens)
+
+Compute the mean-centered ensemble ``\\mathrm{A} = \\mathrm{X} - \\bar{\\mathrm{X}}``
+"""
 centered_ensemble(ens::AbstractMatrix) = ens .- ensemble_mean(ens)
+
+"""
+    ensemble_cov(ens)
+
+Compute the sample covariance of an ensemble ``\\tilde{\\mathrm{C}} = \\frac{\\mathrm{A}\\mathrm{A}^\\top}{N - 1}``
+"""
 function ensemble_cov(ens::AbstractMatrix)
     A = centered_ensemble(ens)
     N_sub_1 = size(ens, 2) - 1
     return (A * A') / N_sub_1
 end
+
+"""
+    ensemble_mean_cov(ens)
+
+Compute sample moments of an ensemble as in [`ensemble_mean`](@ref) and [`ensemble_cov`](@ref).
+"""
 function ensemble_mean_cov(ens::AbstractMatrix)
     m = ensemble_mean(ens)
     A = ens .- m
@@ -18,10 +41,21 @@ export centered_ensemble
 export ensemble_cov
 export ensemble_mean_cov
 
+"""
+    ensemble_mean!(out_m, ens)
+
+Compute the mean ``\\bar{\\mathrm{X}}`` of an ensemble of states ``\\mathrm{X} \\in \\mathbb{R}^{D \\times N}``
+"""
 function ensemble_mean!(out_m::AbstractVector, ens::AbstractMatrix)
     rdiv!(sum!(out_m, ens), size(ens, 2))
     return out_m
 end
+
+"""
+    centered_ensemble!(out_ens, out_m, ens)
+
+Compute the mean-centered ensemble ``\\mathrm{A} = \\mathrm{X} - \\bar{\\mathrm{X}}``
+"""
 function centered_ensemble!(
     out_ens::AbstractMatrix,
     out_m::AbstractVector,
@@ -32,6 +66,12 @@ function centered_ensemble!(
     out_ens .-= out_m
     return out_ens
 end
+
+"""
+    ensemble_mean_cov!(out_cov, out_ens, out_m, ens)
+
+Compute sample moments of an ensemble. See [`ensemble_mean_cov`](@ref).
+"""
 function ensemble_mean_cov!(
     out_cov::AbstractMatrix,
     out_ens::AbstractMatrix,
@@ -50,6 +90,20 @@ export ensemble_mean_cov!
 
 # --
 
+"""
+    enkf_predict(ensemble, Φ, process_noise_dist, [u])
+
+Prediction step in an Ensemble Kalman filter (EnKF).
+
+# Arguments
+- `ensemble::AbstractMatrix`: the current analysis ensemble
+- `Φ::AbstractMatrix`: transition matrix, i.e. dynamics of the state space model
+- `process_noise_dist::MvNormal`: Multivariate Gaussian process-noise distribution.
+- `u::AbstractVector` (optional): affine control input to the dynamics
+
+# References
+[1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter.
+"""
 function enkf_predict(
     ensemble::AbstractMatrix{T},
     Φ::AbstractMatrix{T},
@@ -62,14 +116,25 @@ function enkf_predict(
         forecast_ensemble .+= u
     end
 
-    # Compute sample mean of forecast ensemble
-    # todo?
-    # Calculate zero-mean forecast ensemble by subtracting the mean
-    # todo?
-
     return forecast_ensemble
 end
 
+
+"""
+    enkf_correct(forecast_ensemble, H, measurement_noise_dist, y, [v])
+
+Correction step in an Ensemble Kalman filter (EnKF).
+
+# Arguments
+- `forecast_ensemble::AbstractMatrix`: the current forecast ensemble
+- `H::AbstractMatrix`: measurement matrix of the state space model
+- `measurement_noise_dist::MvNormal`: Multivariate Gaussian measurement-noise distribution.
+- `y::AbstractVector`: a measurement (data point)
+- `v::AbstractVector` (optional): affine control input to the measurement
+
+# References
+[1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter. Section 2.
+"""
 function enkf_correct(
     forecast_ensemble::AbstractMatrix{T},
     H::AbstractMatrix{T},
@@ -94,6 +159,27 @@ function enkf_correct(
     return ensemble
 end
 
+
+"""
+    enkf_matrixfree_correct(forecast_ensemble, HX, HA, measurement_noise_dist, y; [A], [R_inverse])
+
+Observation-matrix-free correction step in an Ensemble Kalman filter (EnKF).
+
+# Arguments
+- `forecast_ensemble::AbstractMatrix`: the current forecast ensemble
+- `HX::AbstractMatrix`: measured forecast ensemble
+- `HA::AbstractMatrix`: measured and centered forecast ensemble
+- `measurement_noise_dist::MvNormal`: Multivariate Gaussian measurement-noise distribution.
+- `y::AbstractVector`: a measurement (data point)
+- `A::AbstractMatrix` (optional): centered forecast ensemble
+- `R_inverse::AbstractMatrix` (optional): the inverse ``R^{-1}`` of the measurement covariance matrix.
+    `missing` per default.
+    If `R_inverse` is not `missing`, then an alternative computation of the analysis ensemble is chosen, which uses
+    the matrix-inversion lemma to scale as `O(N^3)`, instead of `O(d^3)`!
+
+# References
+[1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter. Sections 3, 4.
+"""
 function enkf_matrixfree_correct(
     forecast_ensemble::AbstractMatrix{T},
     HX::AbstractMatrix{T},
@@ -158,14 +244,14 @@ export enkf_correct
 export enkf_matrixfree_correct
 
 """
-    enkf_predict!(fcache, Φ, Q, [u])
+    enkf_predict!(c, Φ, process_noise_dist, [u])
 
-Prediction step in an Ensemble Kalman filter (EnKF).
-
+In-place prediction step in an Ensemble Kalman filter (EnKF).
 
 # Arguments
-- `fcache::EnKFCache`: a cache holding memory-heavy objects
+- `c::FilteringCache`: Cache holding pre-allocated matrices and vectors
 - `Φ::AbstractMatrix`: transition matrix, i.e. dynamics of the state space model
+- `process_noise_dist::MvNormal`: Multivariate Gaussian process-noise distribution.
 - `u::AbstractVector` (optional): affine control input to the dynamics
 
 # References
@@ -199,6 +285,20 @@ function enkf_predict!(
     return forecast_ensemble
 end
 
+
+"""
+    A_HX_HA!(c, H, [v])
+
+In-place computation of measured forecast ensemble `HX`,
+as well as measured centered forecast ensemble `HA` and centered forecast ensemble `A`.
+
+> Note: not `export`ed. Use as `PhDSE.A_HX_HA!`.
+
+# Arguments
+- `c::FilteringCache`: Cache holding pre-allocated matrices and vectors
+- `H::AbstractMatrix`: measurement matrix of the state space model
+- `v::AbstractVector` (optional): affine control input to the measurement
+"""
 function A_HX_HA!(
     c::FilteringCache,
     H::AbstractMatrix{T},
@@ -237,6 +337,22 @@ function A_HX_HA!(
     return A, HX, HA
 end
 
+
+"""
+    enkf_correct!(c, H, measurement_noise_dist, y, [v])
+
+In-place correction step in an Ensemble Kalman filter (EnKF).
+
+# Arguments
+- `c::FilteringCache`: Cache holding pre-allocated matrices and vectors
+- `H::AbstractMatrix`: measurement matrix of the state space model
+- `measurement_noise_dist::MvNormal`: Multivariate Gaussian measurement-noise distribution.
+- `y::AbstractVector`: a measurement (data point)
+- `v::AbstractVector` (optional): affine control input to the measurement
+
+# References
+[1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter. Section 2.
+"""
 function enkf_correct!(
     c::FilteringCache,
     H::AbstractMatrix{T},
@@ -284,6 +400,30 @@ function enkf_correct!(
     return ensemble
 end
 
+
+"""
+    enkf_matrixfree_correct!(c, HX, HA, A, measurement_noise_dist, y; [R_inverse])
+
+In-place observation-matrix-free correction step in an Ensemble Kalman filter (EnKF).
+
+> Note:
+> The arguments `A`, `HX`, `HA` can be computed using [`A_HX_HA!`](@ref)
+
+# Arguments
+- `c::FilteringCache`: Cache holding pre-allocated matrices and vectors
+- `HX::AbstractMatrix`: measured forecast ensemble ``\\mathrm{H}\\mathrm{X} + v``
+- `HA::AbstractMatrix`: measured and centered forecast ensemble ``\\mathrm{H}\\mathrm{A} + v``
+- `A::AbstractMatrix`: centered forecast ensemble ``\\mathrm{A} = \\mathrm{X} - \\bar{\\mathrm{X}}``
+- `measurement_noise_dist::MvNormal`: Multivariate Gaussian measurement-noise distribution.
+- `y::AbstractVector`: a measurement (data point)
+- `R_inverse::AbstractMatrix` (optional): the inverse ``R^{-1}`` of the measurement covariance matrix.
+  `missing` per default.
+   If `R_inverse` is not `missing`, then an alternative computation of the analysis ensemble is chosen, which uses
+   the matrix-inversion lemma to scale as `O(N^3)`, instead of `O(d^3)`!
+
+# References
+[1] Mandel, J. (2006). Efficient Implementation of the Ensemble Kalman Filter. Sections 3, 4.
+"""
 function enkf_matrixfree_correct!(
     c::FilteringCache,
     HX::AbstractMatrix{T},
