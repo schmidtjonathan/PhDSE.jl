@@ -6,7 +6,7 @@ using SafeTestsets
     @safetestset "Cache" begin
         include("cache.jl")
     end
-    # @safetestset "Algorithms" begin
-    #     include("algorithms.jl")
-    # end
+    @safetestset "Algorithms" begin
+        include("algorithms.jl")
+    end
 end
