@@ -1,13 +1,9 @@
 abstract type AbstractAlgCache end
 
-RightMatrixSquareRoot = Union{Diagonal,UpperTriangular,UnitUpperTriangular,UniformScaling}
-export RightMatrixSquareRoot
-
 struct FilteringCache
     entries::IdDict{Tuple{Type,Tuple,AbstractString},Union{Number,AbstractArray}}
     FilteringCache() = new(IdDict{Tuple{Type,Tuple,AbstractString},Union{Number,AbstractArray}}())
 end
-
 
 function Base.getindex(c::FilteringCache, key::AbstractString)
     ret = missing
