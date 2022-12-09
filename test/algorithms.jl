@@ -1,7 +1,5 @@
 using Test
 using LinearAlgebra
-using StatsBase
-using Statistics
 using Random
 using Distributions
 using ForwardDiff
