@@ -2,7 +2,8 @@
     Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
-    cache = FilteringCache(μ₀, Σ₀)
+    cache = FilteringCache()
+    init_cache_moments!(cache, μ₀, Σ₀)
     @test haskey(cache.entries, (typeof(μ₀), size(μ₀), "mean"))
     @test haskey(cache.entries, (typeof(μ₀), size(μ₀), "predicted_mean"))
     @test haskey(cache.entries, (typeof(Σ₀), size(Σ₀), "covariance"))
@@ -17,13 +18,9 @@
     for y in observations
         iip_m, iip_C = kf_predict!(cache, A(iip_m), Q(iip_m), u(iip_m))
         oop_m, oop_C = kf_predict(oop_m, oop_C, A(oop_m), Q(oop_m), u(oop_m))
-        # @test iip_m ≈ oop_m
-        # @test iip_C ≈ oop_C
 
         iip_m, iip_C = kf_correct!(cache, H(iip_m), R(iip_m), y, v(iip_m))
         oop_m, oop_C = kf_correct(oop_m, oop_C, H(oop_m), R(oop_m), y, v(oop_m))
-        # @test iip_m ≈ oop_m
-        # @test iip_C ≈ oop_C
         push!(iip_traj, (copy(iip_m), copy(iip_C)))
         push!(oop_traj, (copy(oop_m), copy(oop_C)))
     end
@@ -39,8 +36,8 @@
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt")
-        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt")
+        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
         plot!(
             test_plot1,
             1:length(iip_means),
@@ -128,8 +125,8 @@ end
         using Plots
         test_plot1 =
             scatter(2:length(observations)+1, [o[1] for o in observations], color = 1)
-        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt")
-        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt")
+        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
         plot!(
             test_plot1,
             1:length(standard_means),

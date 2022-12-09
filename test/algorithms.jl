@@ -64,6 +64,9 @@ function filtering_setup()
     return μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations
 end
 
+@info "Executing tests for standard Kalman filters"
 include("algorithms/kalman.jl")
+@info "Executing tests for square-root Kalman filters"
 include("algorithms/sqrt_kalman.jl")
+@info "Executing tests for ensemble Kalman filters"
 include("algorithms/enkf.jl")

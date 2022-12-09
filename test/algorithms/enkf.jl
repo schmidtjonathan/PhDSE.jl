@@ -30,7 +30,7 @@ const ENSEMBLE_SIZE = 2000
         ensemble = enkf_correct(
             ensemble,
             H(enkf_m),
-            measurement_noise_dist(enkf_m),
+            measurement_noise_dist(y),
             y,
             v(enkf_m),
         )
@@ -57,8 +57,8 @@ const ENSEMBLE_SIZE = 2000
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        test_plot2 =
-            scatter(1:length(observations), [o[2] for o in observations], color = 2)
+        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
         plot!(
             test_plot1,
             1:length(enkf_means),
@@ -182,8 +182,8 @@ end
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        test_plot2 =
-            scatter(1:length(observations), [o[2] for o in observations], color = 2)
+        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
         plot!(
             test_plot1,
             1:length(omf_means),
@@ -314,8 +314,8 @@ end
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        test_plot2 =
-            scatter(1:length(observations), [o[2] for o in observations], color = 2)
+        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
         plot!(
             test_plot1,
             1:length(omf_means),
@@ -369,7 +369,8 @@ end
     oop_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
     iip_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
 
-    enkf_cache = FilteringCache(iip_ensemble)
+    enkf_cache = FilteringCache()
+    init_cache_ensemble!(enkf_cache, iip_ensemble)
     @test haskey(
         enkf_cache.entries,
         (typeof(size(iip_ensemble, 2)), size(size(iip_ensemble, 2)), "N"),
@@ -455,8 +456,8 @@ end
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        test_plot2 =
-            scatter(1:length(observations), [o[2] for o in observations], color = 2)
+        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
         plot!(
             test_plot1,
             1:length(iip_means),
@@ -514,9 +515,12 @@ end
     omf_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
     omf_invR_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
 
-    omf_cache = FilteringCache(omf_ensemble)
-    omf_invR_cache = FilteringCache(omf_invR_ensemble)
-    standard_cache = FilteringCache(standard_ensemble)
+    omf_cache = FilteringCache()
+    omf_invR_cache = FilteringCache()
+    standard_cache = FilteringCache()
+    init_cache_ensemble!(omf_cache, omf_ensemble)
+    init_cache_ensemble!(omf_invR_cache, omf_invR_ensemble)
+    init_cache_ensemble!(standard_cache, standard_ensemble)
 
     standard_m = copy(μ₀)
     omf_m = copy(μ₀)
@@ -622,8 +626,8 @@ end
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        test_plot2 =
-            scatter(1:length(observations), [o[2] for o in observations], color = 2)
+        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
         plot!(
             test_plot1,
             1:length(standard_means),

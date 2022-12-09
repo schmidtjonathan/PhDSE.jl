@@ -3,7 +3,8 @@
     upper_sqrt_to_mat(MU::UpperTriangular) = MU' * MU
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
-    cache = FilteringCache(μ₀, cholesky(Σ₀).U)
+    cache = FilteringCache()
+    init_cache_moments!(cache, μ₀, cholesky(Σ₀).U)
     @test haskey(cache.entries, (typeof(μ₀), size(μ₀), "mean"))
     @test haskey(cache.entries, (typeof(μ₀), size(μ₀), "predicted_mean"))
 
@@ -38,8 +39,6 @@
             cholesky(Q(oop_sqrt_kf_m)).U,
             u(oop_sqrt_kf_m),
         )
-        # @test kf_m ≈ iip_sqrt_kf_m ≈ oop_sqrt_kf_m
-        # @test kf_C ≈ upper_sqrt_to_mat(iip_sqrt_kf_C) ≈ upper_sqrt_to_mat(oop_sqrt_kf_C)
 
         kf_m, kf_C = kf_correct(kf_m, kf_C, H(kf_m), R(kf_m), y, v(kf_m))
         iip_sqrt_kf_m, iip_sqrt_kf_C = sqrt_kf_correct!(
@@ -57,8 +56,7 @@
             y,
             v(oop_sqrt_kf_m),
         )
-        # @test kf_m ≈ iip_sqrt_kf_m ≈ oop_sqrt_kf_m
-        # @test kf_C ≈ upper_sqrt_to_mat(iip_sqrt_kf_C) ≈ upper_sqrt_to_mat(oop_sqrt_kf_C)
+
         push!(kf_traj, (copy(kf_m), copy(kf_C)))
         push!(iip_traj, (copy(iip_sqrt_kf_m), upper_sqrt_to_mat(iip_sqrt_kf_C)))
         push!(oop_traj, (copy(oop_sqrt_kf_m), upper_sqrt_to_mat(oop_sqrt_kf_C)))
@@ -81,8 +79,8 @@
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        test_plot2 =
-            scatter(1:length(observations), [o[2] for o in observations], color = 2)
+        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
         plot!(
             test_plot1,
             1:length(iip_means),
