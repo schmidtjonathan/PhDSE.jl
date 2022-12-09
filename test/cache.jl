@@ -40,7 +40,6 @@ using PhDSE
     @test haskey(enkf_cache.entries, (typeof(ens), size(ens), "ensemble"))
     @test haskey(enkf_cache.entries, (typeof(ens), size(ens), "forecast_ensemble"))
 
-
     # --
     structured_mat_cache = FilteringCache()
     U = cholesky(C).U
