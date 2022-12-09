@@ -57,8 +57,23 @@ const ENSEMBLE_SIZE = 2000
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
-        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        plot!(
+            test_plot1,
+            1:length(ground_truth),
+            [gt[1] for gt in ground_truth],
+            label = "gt",
+            color = :black,
+            lw = 5,
+            alpha = 0.4,
+        )
+        test_plot2 = plot(
+            1:length(ground_truth),
+            [gt[2] for gt in ground_truth],
+            label = "gt",
+            color = :black,
+            lw = 5,
+            alpha = 0.4,
+        )
         plot!(
             test_plot1,
             1:length(enkf_means),
@@ -182,8 +197,23 @@ end
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
-        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        plot!(
+            test_plot1,
+            1:length(ground_truth),
+            [gt[1] for gt in ground_truth],
+            label = "gt",
+            color = :black,
+            lw = 5,
+            alpha = 0.4,
+        )
+        test_plot2 = plot(
+            1:length(ground_truth),
+            [gt[2] for gt in ground_truth],
+            label = "gt",
+            color = :black,
+            lw = 5,
+            alpha = 0.4,
+        )
         plot!(
             test_plot1,
             1:length(omf_means),
@@ -314,8 +344,23 @@ end
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
-        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        plot!(
+            test_plot1,
+            1:length(ground_truth),
+            [gt[1] for gt in ground_truth],
+            label = "gt",
+            color = :black,
+            lw = 5,
+            alpha = 0.4,
+        )
+        test_plot2 = plot(
+            1:length(ground_truth),
+            [gt[2] for gt in ground_truth],
+            label = "gt",
+            color = :black,
+            lw = 5,
+            alpha = 0.4,
+        )
         plot!(
             test_plot1,
             1:length(omf_means),
@@ -456,8 +501,23 @@ end
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
-        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        plot!(
+            test_plot1,
+            1:length(ground_truth),
+            [gt[1] for gt in ground_truth],
+            label = "gt",
+            color = :black,
+            lw = 5,
+            alpha = 0.4,
+        )
+        test_plot2 = plot(
+            1:length(ground_truth),
+            [gt[2] for gt in ground_truth],
+            label = "gt",
+            color = :black,
+            lw = 5,
+            alpha = 0.4,
+        )
         plot!(
             test_plot1,
             1:length(iip_means),
@@ -626,8 +686,23 @@ end
         using Plots
         test_plot1 =
             scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(test_plot1, 1:length(ground_truth), [gt[1] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
-        test_plot2 = plot(1:length(ground_truth), [gt[2] for gt in ground_truth], label="gt", color=:black, lw=5, alpha=0.4)
+        plot!(
+            test_plot1,
+            1:length(ground_truth),
+            [gt[1] for gt in ground_truth],
+            label = "gt",
+            color = :black,
+            lw = 5,
+            alpha = 0.4,
+        )
+        test_plot2 = plot(
+            1:length(ground_truth),
+            [gt[2] for gt in ground_truth],
+            label = "gt",
+            color = :black,
+            lw = 5,
+            alpha = 0.4,
+        )
         plot!(
             test_plot1,
             1:length(standard_means),

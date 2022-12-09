@@ -119,7 +119,6 @@ function enkf_predict(
     return forecast_ensemble
 end
 
-
 """
     enkf_correct(forecast_ensemble, H, measurement_noise_dist, y, [v])
 
@@ -158,7 +157,6 @@ function enkf_correct(
     ensemble = forecast_ensemble + K̂ * residual
     return ensemble
 end
-
 
 """
     enkf_matrixfree_correct(forecast_ensemble, HX, HA, measurement_noise_dist, y; [A], [R_inverse])
@@ -285,7 +283,6 @@ function enkf_predict!(
     return forecast_ensemble
 end
 
-
 """
     A_HX_HA!(c, H, [v])
 
@@ -336,7 +333,6 @@ function A_HX_HA!(
     centered_ensemble!(HA, measured_ens_mean, HX)
     return A, HX, HA
 end
-
 
 """
     enkf_correct!(c, H, measurement_noise_dist, y, [v])
@@ -399,7 +395,6 @@ function enkf_correct!(
     mul!(ensemble, K̂, residual, 1.0, 1.0)
     return ensemble
 end
-
 
 """
     enkf_matrixfree_correct!(c, HX, HA, A, measurement_noise_dist, y; [R_inverse])

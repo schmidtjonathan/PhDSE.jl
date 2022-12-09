@@ -31,7 +31,6 @@ function sqrt_kf_predict(
     return μ⁻, sqrt_Σ⁻
 end
 
-
 """
     sqrt_kf_correct(μ⁻, sqrt_Σ⁻, H, sqrt_R, y, [v])
 
@@ -79,7 +78,6 @@ end
 
 export sqrt_kf_predict
 export sqrt_kf_correct
-
 
 """
     sqrt_kf_predict!(c, Φ, sqrt_Q, [u])
@@ -135,7 +133,6 @@ function sqrt_kf_predict!(
     copy!(sqrt_Σ⁻, qr!(cache_2DxD).R)
     return μ⁻, sqrt_Σ⁻
 end
-
 
 """
     sqrt_kf_correct!(c, H, sqrt_R, y, [v])

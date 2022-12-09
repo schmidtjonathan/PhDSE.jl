@@ -28,7 +28,6 @@ function kf_predict(
     return μ⁻, Σ⁻
 end
 
-
 """
     kf_correct(μ⁻, Σ⁻, H, R, y, [v])
 
@@ -65,8 +64,6 @@ function kf_correct(
     Σ = Σ⁻ - K * S * K'
     return μ, Σ
 end
-
-
 
 """
     kf_joseph_correct(μ⁻, Σ⁻, H, R, y, [v])
@@ -163,7 +160,6 @@ function kf_predict!(
     Σ⁻ .+= Q
     return μ⁻, Σ⁻
 end
-
 
 """
     kf_correct!(c, H, R, y, [v])
