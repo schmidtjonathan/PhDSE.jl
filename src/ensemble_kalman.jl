@@ -119,6 +119,33 @@ function enkf_predict(
     return forecast_ensemble
 end
 
+# >>>
+# Houtekamer, Mitchell, 1998. "Data Assimilation Using an Ensemble Kalman Filter Technique".
+# Eqs. (13) - (15)
+function _sum_terms(ens_member, ens_mean, H)
+    centered = ens_member - ens_mean
+    meas = H * centered
+    PH_term = centered * meas'
+    HPH_term = meas * meas'
+    return PH_term, HPH_term
+end
+
+function _calc_PH_HPH(ensemble, H)
+    D, N = size(ensemble)
+    d = size(H, 1)
+    ens_mean = ensemble_mean(ensemble)
+    PH = zeros(D, d)
+    HPH = zeros(d, d)
+    @inbounds @simd for i in 1:N
+        PH_term, HPH_term = _sum_terms(ensemble[:, i], ens_mean, H)
+        PH .+= PH_term
+        HPH .+= HPH_term
+    end
+    return PH / (N - 1), HPH / (N - 1)
+end
+
+# <<<
+
 """
     enkf_correct(forecast_ensemble, H, measurement_noise_dist, y, [v])
 
@@ -148,12 +175,10 @@ function enkf_correct(
     end
     data_plus_noise = rand(measurement_noise_dist, N) .+ y
     residual = data_plus_noise - HX
-    A = centered_ensemble(forecast_ensemble)
+    PH, HPH = _calc_PH_HPH(forecast_ensemble, H)
 
-    C = Symmetric(A * A') / (N - 1)
-    cross_covariance = C * H'
-    Ŝ = Symmetric(H * cross_covariance + measurement_noise_dist.Σ, :L)
-    K̂ = cross_covariance / Ŝ
+    Ŝ = HPH + measurement_noise_dist.Σ
+    K̂ = PH / cholesky!(Symmetric(Ŝ))
     ensemble = forecast_ensemble + K̂ * residual
     return ensemble
 end
