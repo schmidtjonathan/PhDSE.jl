@@ -7,7 +7,7 @@ using Plots
 
 using PhDSE
 
-const PLOT_RESULTS = false
+const PLOT_RESULTS = true
 
 """
     gt:          size [T+1, D]
@@ -18,7 +18,7 @@ function plot_test(
     gt,
     obs,
     H,
-    num_lines = missing;
+    num_lines = 5;
     estim_means = missing,
     estim_stds = missing,
 )
@@ -33,7 +33,7 @@ function plot_test(
         even_spacing = 1
     else
         @assert num_lines isa Int
-        even_spacing = dim_state ÷ num_lines
+        even_spacing = (2 * (dim_state ÷ num_lines) ÷ 2) + 1
     end
 
     gpl = plot()
@@ -77,18 +77,81 @@ function projectionmatrix(dimension::Int64, num_derivatives::Int64, derivative::
     kron(I(dimension), [i == (derivative + 1) ? 1.0 : 0.0 for i in 1:num_derivatives+1]')
 end
 
-function _matern(wiener_process_dimension, num_derivatives, lengthscale, dt)
+function _matern(wiener_process_dimension, num_derivatives, lengthscale, dt, diffusion)
     q = num_derivatives
     l = lengthscale
 
-    ν = q - 1 / 2
+    ν = q + 0.5
     λ = sqrt(2ν) / l
 
     drift = diagm(1 => ones(q))
     @. drift[end, :] = -binomial(q + 1, 0:q) * λ^((q+1):-1:1)
 
     dispersion = zeros(q + 1)
-    dispersion[end] = 1.0
+    dispersion[end] = diffusion
+
+    d = size(drift, 1)
+    M = [drift dispersion*dispersion'; zero(drift) -drift']
+    Mexp = exp(dt * M)
+    A_breve = Mexp[1:d, 1:d]
+    Q_breve = Mexp[1:d, d+1:end] * A_breve'
+
+    A = kron(I(wiener_process_dimension), A_breve)
+    Q = kron(I(wiener_process_dimension), Q_breve)
+    @assert Q ≈ Q'
+    sQ = Symmetric(0.5 * (Q + Q'))
+    return A, sQ
+end
+
+function simulate_linear(
+    A, Q, u, H, R, v, μ₀, Σ₀, N::Int; rng = Random.GLOBAL_RNG,
+)
+    x = rand(rng, MvNormal(μ₀, Σ₀))
+    states = [x]
+    observations = []
+
+    for i in 1:N
+        push!(states, rand(rng, MvNormal(A * states[end] .+ u, Q)))
+        push!(observations, rand(rng, MvNormal(H * states[end] .+ v, R)))
+    end
+    return states, observations
+end
+
+stack(x) = copy(reduce(hcat, x)')
+
+function filtering_setup(D=100, num_obs=100)
+
+    σ₀ = 0.001
+    σᵣ = 0.05
+
+    matern_derivs = 1
+    totaldim = D * (matern_derivs + 1)
+
+    μ₀ = zeros(totaldim)
+    Σ₀ = diagm(0 => σ₀ .* ones(totaldim))
+
+    tspan = (0.0, 1.0)
+    dt = (tspan[2] - tspan[1]) / num_obs
+    lengthscale = 1.0
+    diffusion = 2.0
+    A, Q = _matern(D, matern_derivs, lengthscale, dt, diffusion)
+
+    H = projectionmatrix(D, matern_derivs, 0)
+    measdim, totaldim = size(H)
+
+    R = diagm(0 => σᵣ .* ones(measdim))
+
+    u = 0.1 .* randn(totaldim)
+    v = zeros(measdim)
+
+    ground_truth, observations = simulate_linear(A, Q, u, H, R, v, μ₀, Σ₀, num_obs)
+
+    if PLOT_RESULTS
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H),
+            joinpath(mkpath("./out/"), "setup.png"),
+        )
+    end
 
     d = size(drift, 1)
     M = [drift dispersion*dispersion'; zero(drift) -drift']

@@ -551,3 +551,199 @@ end
 export enkf_predict!
 export enkf_correct!
 export enkf_matrixfree_correct!
+
+
+# function sqrt_enkf_predict(
+#     ensemble::AbstractMatrix{T},
+#     Z_a::AbstractMatrix{T},
+#     Φ::AbstractMatrix{T},
+#     process_noise_dist::MvNormal,
+#     u::Union{AbstractVector{T},Missing} = missing,
+# ) where {T}
+#     # ASSUMING LEFT MATRIX SQUARE ROOTS HERE, i.e. M = LᵀL, as opposed to sqrt_kalman
+#     # sqrt_ensemble_cov could e.g. be: sqrt(1.0 / (N - 1)) * centered_ensemble(ensemble)
+#     dyn = Φ * Z_a
+#     if !ismissing(u)
+#         dyn .+= u
+#     end
+#     Z_f = [dyn  cholesky(process_noise_dist.Σ).L]
+
+#     return Z_f
+# end
+
+
+function etkf_correct(
+    forecast_ensemble::AbstractMatrix{T},
+    Z_f::AbstractMatrix{T},
+    H::AbstractMatrix{T},
+    measurement_noise_dist::MvNormal,
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    D, N = size(forecast_ensemble)
+    R_sqrt = cholesky(Symmetric(measurement_noise_dist.Σ / (N-1), :L))
+
+    # Whitening
+    # measured_fc_ens = H * forecast_ensemble
+    # if !ismissing(v)
+    #     measured_fc_ens .+= v
+    # end
+    residual = cholesky(Symmetric(measurement_noise_dist.Σ)) \ (y - (H * ensemble_mean(forecast_ensemble) + v))  # whitened
+
+    # =============== TIPPET + BISHOP VERSION ===========
+    # Eq. (16) in Tippett 2003. >>>
+    # H̃ = R_sqrt \ H
+    # HZf = H̃ * Z_f
+    # @show size(HZf)
+    # # Rinv_HZf =  R_sqrt \ HZf
+    # # HT_Rinv_HZF = H̃' * Rinv_HZf
+    # M = HZf' * HZf
+    # Γ, C = eigen(Symmetric(M), sortby=λ -> -λ)
+    # # C, sqrt_Γ, V = svd(HZf', full=true)
+    # # @show size(C), size(sqrt_Γ)
+    # # Γ = Diagonal(sqrt_Γ.^2)
+    # Γ = Diagonal(map(x->x > 1e-10 ? x : 0.0, Γ)) # Diagonal(Γ)
+    # @show Γ.diag[1] Γ.diag[end]
+    # I_plus_gamma = Γ + I
+
+    # transformation_matrix_T = C * inv(sqrt(I_plus_gamma))  # I_plus_gamma is diagonal, so it's fine.
+    # Z_a = Z_f * transformation_matrix_T  # Xap
+
+    # # Eq. (16b) in Bishop 2001.
+    # E = H̃ * Z_f * C * inv(sqrt(Diagonal(map(x->x > 1e-10 ? x : 1.0, Γ.diag))))
+    # K = Z_f * C * sqrt(Γ) * inv(I_plus_gamma) * E'
+    # fc_mean = ensemble_mean(forecast_ensemble)  # xf
+    # analysis_mean = ensemble_mean(fc_mean .+ K * residual)   # xa
+    # analysis_ensemble = Z_a .+ analysis_mean
+    # return analysis_ensemble, analysis_mean, Z_a
+    # ===================================================
+
+    # # ================= SANGOMA VERSION =================
+    # @show size(Z_f), typeof(Z_f)
+    # S = H * Z_f
+    # # S = H * forecast_ensemble .- H * ensemble_mean(forecast_ensemble)
+    # @show size(S), typeof(S)
+    # @show size(R_sqrt), typeof(R_sqrt)
+    # sqrtRinvS = R_sqrt \ S
+    # @show size(sqrtRinvS), typeof(sqrtRinvS)
+    # S̃ = sqrt((1.0 / (N-1))) * sqrtRinvS
+    # @show size(S̃), typeof(S̃)
+    # U_T, Σ_T, V_T = svd(copy(S̃'))
+    # @show Σ_T
+    # Σ_T = Diagonal(Σ_T)
+
+    # if size(Σ_T,2) > N
+    #     Σ_T = Σ_T[:,1:N]
+    #     V_T = V_T[:,1:N]
+    # end
+
+    # transformation_matrix_T = U_T * inv(sqrt(Σ_T * Σ_T' + I))
+    # @show size(transformation_matrix_T), typeof(transformation_matrix_T)
+    # Z_a = Z_f * transformation_matrix_T * U_T'  # Xap
+    # @show size(Z_a), typeof(Z_a)
+
+    # K = (1.0 / sqrt(N-1)) * Z_f * U_T * inv(Σ_T' * Σ_T + I) * Σ_T * V_T'
+    # @show size(K), typeof(K)
+    # analysis_mean = ensemble_mean(forecast_ensemble) + K * residual
+    # analysis_ensemble = Z_a .+ analysis_mean
+    # return analysis_ensemble, analysis_mean, Z_a
+    # # ===================================================
+
+    # # ================= PYTHON PGK VERSION =================
+    # https://github.com/thiery-lab/data-assimilation
+    # @show size(Z_f), typeof(Z_f)
+    Y = (H * Z_f)'
+    # S = H * forecast_ensemble .- H * ensemble_mean(forecast_ensemble)
+    # @show size(S), typeof(S)
+    # @show size(R_sqrt), typeof(R_sqrt)
+    M = Y / R_sqrt
+    # @show size(sqrtRinvS), typeof(sqrtRinvS)
+    # S̃ = sqrt((1.0 / (N-1))) * sqrtRinvS
+    # @show size(S̃), typeof(S̃)
+    U_T, Σ_T, V_T = svd(copy(M))
+    # @show Σ_T
+    Σ_T = Diagonal(Σ_T)
+
+    # if size(Σ_T,2) > N
+    #     Σ_T = Σ_T[:,1:N]
+    #     V_T = V_T[:,1:N]
+    # end
+
+    transformation_matrix_T = U_T * inv(sqrt(Σ_T * Σ_T' + I)) * U_T'
+    # @show size(transformation_matrix_T), typeof(transformation_matrix_T)
+    Z_a = Z_f * transformation_matrix_T'
+    # @show size(Z_a), typeof(Z_a)
+
+    # K = (1.0 / sqrt(N-1)) * Z_f * U_T * inv(Σ_T' * Σ_T + I) * Σ_T * V_T'
+    K = Z_f * U_T * inv(Σ_T' * Σ_T + I) * U_T' * Y
+    # @show size(K), typeof(K)
+    analysis_mean = ensemble_mean(forecast_ensemble) + K * residual / (N-1)
+    analysis_ensemble = Z_a .+ analysis_mean
+    return analysis_ensemble, analysis_mean, Z_a
+    # # ===================================================
+end
+
+export etkf_correct
+
+
+# function eakf_correct(
+#     forecast_ensemble::AbstractMatrix{T},
+#     Z_f::AbstractMatrix{T},
+#     H::AbstractMatrix{T},
+#     measurement_noise_dist::MvNormal,
+#     y::AbstractVector{T},
+#     v::Union{AbstractVector{T},Missing} = missing,
+# ) where {T}
+#     D, N = size(forecast_ensemble)
+#     R_sqrt = sqrt(measurement_noise_dist.Σ) #cholesky(Symmetric(measurement_noise_dist.Σ, :L))
+
+#     # Whitening
+#     # measured_fc_ens = H * forecast_ensemble
+#     # if !ismissing(v)
+#     #     measured_fc_ens .+= v
+#     # end
+#     residual = R_sqrt \ (y - (H * ensemble_mean(forecast_ensemble) + v))  # whitened
+
+
+#     fcmean, Pf = ensemble_mean_cov(forecast_ensemble)
+#     # @show size(Z_f), typeof(Z_f)
+#     # S = H * Z_f
+#     S = H * forecast_ensemble .- ensemble_mean(H * forecast_ensemble)
+#     # @show size(S), typeof(S)
+#     # @show size(R_sqrt), typeof(R_sqrt)
+#     sqrtRinvS = R_sqrt \ S
+#     # @show size(sqrtRinvS), typeof(sqrtRinvS)
+#     S̃ = sqrt((1.0 / (N-1))) * sqrtRinvS
+#     # @show size(S̃), typeof(S̃)
+#     U_A, Σ_A, V_A = svd(S̃')
+#     Σ_A = Diagonal(Σ_A)
+#     @show size(Σ_A)
+#     U_A = U_A[:,1:N-1]
+#     Σ_A = Σ_A[1:N-1,1:N-1]
+#     V_A = V_A[:,1:N-1]
+
+#     Z_A,sqrtGamma_A,dummy = svd(Xfp)
+#     sqrtGamma_A = Diagonal(sqrtGamma_A)
+#     # @show Σ_A
+#     Gamma_A = Diagonal(sqrtGamma_A)
+
+#     Gamma_A = sqrtGamma_A.^2 / (N-1)
+#     Gamma_A = Gamma_A[1:N-1,1:N-1]
+#     Gamma_A = convert(Matrix, Gamma_A)
+#     Z_A = Z_A[:,1:N-1]
+
+
+#     @show size(U_A) size(Σ_A) size(Gamma_A) size(C_A) size(Z_f)
+#     transformation_matrix_T = U_A * sqrt(inv(Σ_A' * Σ_A + I)) * sqrt(inv(Gamma_A)) * Z_A' * Z_f
+#     # @show size(transformation_matrix_T), typeof(transformation_matrix_T)
+#     Z_a = Z_f * transformation_matrix_T  # Xap
+#     # @show size(Z_a), typeof(Z_a)
+
+#     K = (1.0 / sqrt(N-1)) * Z_f * U_A * inv(Σ_A' * Σ_A + I) * Σ_A * V_A'
+#     # @show size(K), typeof(K)
+#     analysis_mean = ensemble_mean(forecast_ensemble) + K * residual
+#     analysis_ensemble = Z_a .+ analysis_mean
+#     return analysis_ensemble, analysis_mean, Z_a
+# end
+
+# export eakf_correct

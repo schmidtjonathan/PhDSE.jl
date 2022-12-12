@@ -6,7 +6,7 @@ const ENSEMBLE_SIZE = 2000
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
     measurement_noise_dist = MvNormal(zero(observations[1]), R)
     # Choose larger ensemble size when comparing to exact KF computation
-    ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE * 5)
+    ensemble = rand(init_dist, ENSEMBLE_SIZE * 5)
 
     kf_m = copy(μ₀)
     enkf_m = copy(μ₀)
@@ -78,8 +78,8 @@ end
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
     measurement_noise_dist = MvNormal(zero(observations[1]), R)
-    standard_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
-    omf_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
+    standard_ensemble = rand(init_dist, ENSEMBLE_SIZE)
+    omf_ensemble = rand(init_dist, ENSEMBLE_SIZE)
 
     standard_m = copy(μ₀)
     omf_m = copy(μ₀)
@@ -170,8 +170,8 @@ end
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
     measurement_noise_dist = MvNormal(zero(observations[1]), R)
-    mil_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
-    omf_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
+    mil_ensemble = rand(init_dist, ENSEMBLE_SIZE)
+    omf_ensemble = rand(init_dist, ENSEMBLE_SIZE)
 
     mil_m = copy(μ₀)
     omf_m = copy(μ₀)
@@ -266,8 +266,8 @@ end
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
     measurement_noise_dist = MvNormal(zero(observations[1]), R)
-    oop_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
-    iip_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
+    oop_ensemble = rand(init_dist, ENSEMBLE_SIZE)
+    iip_ensemble = rand(init_dist, ENSEMBLE_SIZE)
 
     enkf_cache = FilteringCache()
     init_cache_ensemble!(enkf_cache, iip_ensemble)
@@ -374,9 +374,9 @@ end
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
     measurement_noise_dist = MvNormal(zero(observations[1]), R)
-    standard_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
-    omf_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
-    omf_invR_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
+    standard_ensemble = rand(init_dist, ENSEMBLE_SIZE)
+    omf_ensemble = rand(init_dist, ENSEMBLE_SIZE)
+    omf_invR_ensemble = rand(init_dist, ENSEMBLE_SIZE)
 
     omf_cache = FilteringCache()
     omf_invR_cache = FilteringCache()
