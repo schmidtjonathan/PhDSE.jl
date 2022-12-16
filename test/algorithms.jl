@@ -8,11 +8,32 @@ using PhDSE
 
 const PLOT_RESULTS = false
 
-function simulate_nonlinear(
-    f::Function,
+
+
+function matrix_fraction_decomposition(drift_matrix, dispersion_matrix, dt)
+    dim = size(drift_matrix, 1)
+
+    Φ = [
+        drift_matrix   dispersion_matrix * dispersion_matrix'
+        zeros(size(drift_matrix))   -drift_matrix'
+        ]
+
+    M = exp(Φ .* dt)
+
+    Ah = M[1:dim, 1:dim]
+    Qh = M[1:dim, dim+1:end] * Ah'
+
+    return Ah, Qh
+end
+
+
+function simulate_linear(
+    A,
     Q,
-    h::Function,
+    u,
+    H,
     R,
+    v,
     μ₀,
     Σ₀,
     N::Int;
@@ -23,41 +44,32 @@ function simulate_nonlinear(
     observations = []
 
     for i in 1:N
-        push!(states, rand(rng, MvNormal(f(states[end]), Q(x))))
-        push!(observations, rand(rng, MvNormal(h(states[end]), R(x))))
+        push!(states, rand(rng, MvNormal(A * states[end] .+ u, Q)))
+        push!(observations, rand(rng, MvNormal(H * states[end] .+ v, R)))
     end
     return states, observations
 end
 
 stack(x) = copy(reduce(hcat, x)')
 
-function filtering_setup()
-    d, D = 1, 2
-    μ₀ = [-1.0, 1.0]
-    Σ₀ = [0.01 0.0
-        0.0 0.01]
-    a, b, c = 0.2, 0.2, 3.0
+function filtering_setup(D=100, d=10, num_obs=200)
 
-    function f(x)
-        x1, x2 = x
-        return [
-            x1 + 0.1 * (c * (x1 - x1^3 / 3 + x2)),
-            x2 + 0.1 * (-(1 / c) * (x1 - a - b * x2)),
-        ]
-    end
-    function h(x)
-        return x[1:1]
-    end
+    μ₀ = rand(D)
+    Σ₀ = diagm(0=>ones(D))
 
-    A(x) = ForwardDiff.jacobian(f, x)
-    Q(x) = Matrix{Float64}(0.001 * I(D))
-    H(x) = Matrix{Float64}(I(D))[1:1, :]
-    R(x) = Matrix{Float64}(I(d))
-    u(x) = f(x) - A(x) * x
-    v(x) = zeros(d)
+    tspan = (0.0, 10.0)
+    dt = (tspan[2] - tspan[1]) / num_obs
+    F = diagm(0=>-rand(D))
+    B = Diagonal(ones(D))
+    A, Q = matrix_fraction_decomposition(F, B, dt)
 
-    N = 200
-    ground_truth, observations = simulate_nonlinear(f, Q, h, R, μ₀, Σ₀, N)
+    H = Diagonal(ones(D))[1:(D ÷ d):end, :]
+    R = Diagonal(ones(d))
+
+    u = zeros(D)
+    v = 0.1 .* ones(d)
+
+    ground_truth, observations = simulate_linear(A, Q, u, H, R, v, μ₀, Σ₀, num_obs)
 
     return μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations
 end
@@ -66,5 +78,5 @@ end
 include("algorithms/kalman.jl")
 @info "Executing tests for square-root Kalman filters"
 include("algorithms/sqrt_kalman.jl")
-@info "Executing tests for ensemble Kalman filters"
-include("algorithms/enkf.jl")
+# @info "Executing tests for ensemble Kalman filters"
+# include("algorithms/enkf.jl")
