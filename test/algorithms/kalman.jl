@@ -16,11 +16,11 @@
     iip_traj = [(copy(μ₀), copy(Σ₀))]
     oop_traj = [(copy(μ₀), copy(Σ₀))]
     for y in observations
-        iip_m, iip_C = kf_predict!(cache, A(iip_m), Q(iip_m), u(iip_m))
-        oop_m, oop_C = kf_predict(oop_m, oop_C, A(oop_m), Q(oop_m), u(oop_m))
+        iip_m, iip_C = kf_predict!(cache, A, Q, u)
+        oop_m, oop_C = kf_predict(oop_m, oop_C, A, Q, u)
 
-        iip_m, iip_C = kf_correct!(cache, H(iip_m), R(iip_m), y, v(iip_m))
-        oop_m, oop_C = kf_correct(oop_m, oop_C, H(oop_m), R(oop_m), y, v(oop_m))
+        iip_m, iip_C = kf_correct!(cache, H, R, y, v)
+        oop_m, oop_C = kf_correct(oop_m, oop_C, H, R, y, v)
         push!(iip_traj, (copy(iip_m), copy(iip_C)))
         push!(oop_traj, (copy(oop_m), copy(oop_C)))
     end
@@ -110,20 +110,20 @@ end
     joseph_traj = [(copy(μ₀), copy(Σ₀))]
     for y in observations
         standard_m, standard_C =
-            kf_predict(standard_m, standard_C, A(standard_m), Q(standard_m), u(standard_m))
+            kf_predict(standard_m, standard_C, A, Q, u)
         joseph_m, joseph_C =
-            kf_predict(joseph_m, joseph_C, A(joseph_m), Q(joseph_m), u(joseph_m))
+            kf_predict(joseph_m, joseph_C, A, Q, u)
 
         standard_m, standard_C = kf_correct(
             standard_m,
             standard_C,
-            H(standard_m),
-            R(standard_m),
+            H,
+            R,
             y,
-            v(standard_m),
+            v,
         )
         joseph_m, joseph_C =
-            kf_joseph_correct(joseph_m, joseph_C, H(joseph_m), R(joseph_m), y, v(joseph_m))
+            kf_joseph_correct(joseph_m, joseph_C, H, R, y, v)
 
         push!(standard_traj, (copy(standard_m), copy(standard_C)))
         push!(joseph_traj, (copy(joseph_m), copy(joseph_C)))

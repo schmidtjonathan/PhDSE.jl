@@ -24,37 +24,39 @@
     kf_traj = [(copy(μ₀), copy(Σ₀))]
     iip_traj = [(copy(μ₀), copy(Σ₀))]
     oop_traj = [(copy(μ₀), copy(Σ₀))]
+    sqrt_Q = UpperTriangular(cholesky(Q).U)
+    sqrt_R = UpperTriangular(cholesky(R).U)
     for y in observations
-        kf_m, kf_C = kf_predict(kf_m, kf_C, A(kf_m), Q(kf_m), u(kf_m))
+        kf_m, kf_C = kf_predict(kf_m, kf_C, A, Q, u)
         iip_sqrt_kf_m, iip_sqrt_kf_C = sqrt_kf_predict!(
             cache,
-            A(iip_sqrt_kf_m),
-            cholesky(Q(iip_sqrt_kf_m)).U,
-            u(iip_sqrt_kf_m),
+            A,
+            sqrt_Q,
+            u,
         )
         oop_sqrt_kf_m, oop_sqrt_kf_C = sqrt_kf_predict(
             oop_sqrt_kf_m,
             oop_sqrt_kf_C,
-            A(oop_sqrt_kf_m),
-            cholesky(Q(oop_sqrt_kf_m)).U,
-            u(oop_sqrt_kf_m),
+            A,
+            sqrt_Q,
+            u,
         )
 
-        kf_m, kf_C = kf_correct(kf_m, kf_C, H(kf_m), R(kf_m), y, v(kf_m))
+        kf_m, kf_C = kf_correct(kf_m, kf_C, H, R, y, v)
         iip_sqrt_kf_m, iip_sqrt_kf_C = sqrt_kf_correct!(
             cache,
-            H(iip_sqrt_kf_m),
-            cholesky(R(iip_sqrt_kf_m)).U,
+            H,
+            sqrt_R,
             y,
-            v(iip_sqrt_kf_m),
+            v,
         )
         oop_sqrt_kf_m, oop_sqrt_kf_C = sqrt_kf_correct(
             oop_sqrt_kf_m,
             oop_sqrt_kf_C,
-            H(oop_sqrt_kf_m),
-            cholesky(R(oop_sqrt_kf_m)).U,
+            H,
+            sqrt_R,
             y,
-            v(oop_sqrt_kf_m),
+            v,
         )
 
         push!(kf_traj, (copy(kf_m), copy(kf_C)))

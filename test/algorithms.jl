@@ -60,11 +60,11 @@ function filtering_setup(D=100, d=10, num_obs=200)
     tspan = (0.0, 10.0)
     dt = (tspan[2] - tspan[1]) / num_obs
     F = diagm(0=>-rand(D))
-    B = Diagonal(ones(D))
+    B = diagm(0=>ones(D))
     A, Q = matrix_fraction_decomposition(F, B, dt)
 
-    H = Diagonal(ones(D))[1:(D ÷ d):end, :]
-    R = Diagonal(ones(d))
+    H = diagm(0=>ones(D))[1:(D ÷ d):end, :]
+    R = diagm(0=>ones(d))
 
     u = zeros(D)
     v = 0.1 .* ones(d)
