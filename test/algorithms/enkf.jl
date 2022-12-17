@@ -159,8 +159,8 @@ end
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
-    process_noise_dist(x) = MvNormal(zero(x), Q(x))
-    measurement_noise_dist(x) = MvNormal(zero(x), R(x))
+    process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
+    measurement_noise_dist = MvNormal(zero(observations[1]), R)
     mil_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
     omf_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
 
@@ -173,38 +173,38 @@ end
     for y in observations
         mil_ensemble = enkf_predict(
             mil_ensemble,
-            A(mil_m),
-            process_noise_dist(mil_m),
-            u(mil_m),
+            A,
+            process_noise_dist,
+            u,
         )
         omf_ensemble = enkf_predict(
             omf_ensemble,
-            A(omf_m),
-            process_noise_dist(omf_m),
-            u(omf_m),
+            A,
+            process_noise_dist,
+            u,
         )
         mil_m, mil_C = ensemble_mean_cov(mil_ensemble)
         omf_m, omf_C = ensemble_mean_cov(omf_ensemble)
 
-        mil_HX = H(mil_m) * mil_ensemble .+ v(mil_m)
+        mil_HX = H * mil_ensemble .+ v
         mil_HA = centered_ensemble(mil_HX)
         mil_ensemble = enkf_matrixfree_correct(
             mil_ensemble,
             mil_HX,
             mil_HA,
-            measurement_noise_dist(y),
+            measurement_noise_dist,
             y;
             # A = _A,
-            R_inverse = inv(R(y)),
+            R_inverse = inv(R),
         )
 
-        omf_HX = H(omf_m) * omf_ensemble .+ v(omf_m)
+        omf_HX = H * omf_ensemble .+ v
         omf_HA = centered_ensemble(omf_HX)
         omf_ensemble = enkf_matrixfree_correct(
             omf_ensemble,
             omf_HX,
             omf_HA,
-            measurement_noise_dist(y),
+            measurement_noise_dist,
             y;
             # A = _A,
             R_inverse = missing,
@@ -217,84 +217,30 @@ end
         push!(omf_traj, (copy(omf_m), copy(omf_C)))
     end
 
-    # for ((m1, C1), (m2, C2)) in zip(mil_traj, omf_traj)
-    #     println("$m1 vs. $m2")
-    # end
-
     @test all([
         isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
         ((m1, C1), (m2, C2)) in zip(mil_traj, omf_traj)
     ])
-    @test all([
-        isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
-        ((m1, C1), (m2, C2)) in zip(mil_traj, omf_traj)
-    ])
+    # @test all([
+    #     isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
+    #     ((m1, C1), (m2, C2)) in zip(mil_traj, omf_traj)
+    # ])
 
     if PLOT_RESULTS
-        mil_means = [m for (m, C) in mil_traj]
-        omf_means = [m for (m, C) in omf_traj]
-        mil_stds = [2sqrt.(diag(C)) for (m, C) in mil_traj]
-        omf_stds = [2sqrt.(diag(C)) for (m, C) in omf_traj]
-        using Plots
-        test_plot1 =
-            scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(
-            test_plot1,
-            1:length(ground_truth),
-            [gt[1] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
+        mil_means = stack([m for (m, C) in mil_traj])
+        omf_means = stack([m for (m, C) in omf_traj])
+        mil_stds = stack([2sqrt.(diag(C)) for (m, C) in mil_traj])
+        omf_stds = stack([2sqrt.(diag(C)) for (m, C) in omf_traj])
+
+        out_dir = mkpath("./out/d3OMFEnKF_oop-vs-N3OMFEnKF_oop")
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=mil_means, estim_stds=mil_stds),
+            joinpath(out_dir, "ON3.png")
         )
-        test_plot2 = plot(
-            1:length(ground_truth),
-            [gt[2] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=omf_means, estim_stds=omf_stds),
+            joinpath(out_dir, "OD3.png")
         )
-        plot!(
-            test_plot1,
-            1:length(omf_means),
-            [m[1] for m in omf_means],
-            ribbon = [s[1] for s in omf_stds],
-            label = "OMF",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(omf_means),
-            [m[2] for m in omf_means],
-            ribbon = [s[2] for s in omf_stds],
-            label = "OMF",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot1,
-            1:length(mil_means),
-            [m[1] for m in mil_means],
-            ribbon = [s[1] for s in mil_stds],
-            label = "MIL",
-            color = 5,
-            lw = 3,
-            ls = :dot,
-        )
-        plot!(
-            test_plot2,
-            1:length(mil_means),
-            [m[2] for m in mil_means],
-            ribbon = [s[2] for s in mil_stds],
-            label = "MIL",
-            color = 5,
-            lw = 3,
-            ls = :dot,
-        )
-        test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "d3OMFEnKF_oop-vs-N3OMFEnKF_oop.png"))
     end
 end
 
