@@ -5,10 +5,10 @@ const ENSEMBLE_SIZE = 2000
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
-    process_noise_dist(x) = MvNormal(zero(x), Q(x))
-    measurement_noise_dist(x) = MvNormal(zero(x), R(x))
+    process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
+    measurement_noise_dist = MvNormal(zero(observations[1]), R)
     # Choose larger ensemble size when comparing to exact KF computation
-    ensemble = rand(init_dist, ENSEMBLE_SIZE * 10)
+    ensemble = rand(Xoshiro(123), init_dist, ENSEMBLE_SIZE * 15)
 
     kf_m = copy(μ₀)
     enkf_m = copy(μ₀)
@@ -17,22 +17,22 @@ const ENSEMBLE_SIZE = 2000
     kf_traj = [(copy(μ₀), copy(Σ₀))]
     enkf_traj = [(copy(μ₀), copy(Σ₀))]
     for y in observations
-        kf_m, kf_C = kf_predict(kf_m, kf_C, A(kf_m), Q(kf_m), u(kf_m))
+        kf_m, kf_C = kf_predict(kf_m, kf_C, A, Q, u)
         ensemble = enkf_predict(
             ensemble,
-            A(enkf_m),
-            process_noise_dist(enkf_m),
-            u(enkf_m),
+            A,
+            process_noise_dist,
+            u,
         )
         enkf_m, enkf_C = ensemble_mean_cov(ensemble)
 
-        kf_m, kf_C = kf_correct(kf_m, kf_C, H(kf_m), R(kf_m), y, v(kf_m))
+        kf_m, kf_C = kf_correct(kf_m, kf_C, H, R, y, v)
         ensemble = enkf_correct(
             ensemble,
-            H(enkf_m),
-            measurement_noise_dist(y),
+            H,
+            measurement_noise_dist,
             y,
-            v(enkf_m),
+            v,
         )
         enkf_m, enkf_C = ensemble_mean_cov(ensemble)
 
@@ -50,70 +50,20 @@ const ENSEMBLE_SIZE = 2000
     ])
 
     if PLOT_RESULTS
-        kf_means = [m for (m, C) in kf_traj]
-        enkf_means = [m for (m, C) in enkf_traj]
-        kf_stds = [2sqrt.(diag(C)) for (m, C) in kf_traj]
-        enkf_stds = [2sqrt.(diag(C)) for (m, C) in enkf_traj]
-        using Plots
-        test_plot1 =
-            scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(
-            test_plot1,
-            1:length(ground_truth),
-            [gt[1] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
+        kf_means = stack([m for (m, C) in kf_traj])
+        enkf_means = stack([m for (m, C) in enkf_traj])
+        kf_stds = stack([2sqrt.(diag(C)) for (m, C) in kf_traj])
+        enkf_stds = stack([2sqrt.(diag(C)) for (m, C) in enkf_traj])
+
+        out_dir = mkpath("./out/KF_oop-vs-standardEnKF_oop")
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=kf_means, estim_stds=kf_stds),
+            joinpath(out_dir, "kf.png")
         )
-        test_plot2 = plot(
-            1:length(ground_truth),
-            [gt[2] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=enkf_means, estim_stds=enkf_stds),
+            joinpath(out_dir, "enkf.png")
         )
-        plot!(
-            test_plot1,
-            1:length(enkf_means),
-            [m[1] for m in enkf_means],
-            ribbon = [s[1] for s in enkf_stds],
-            label = "enkf",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(enkf_means),
-            [m[2] for m in enkf_means],
-            ribbon = [s[2] for s in enkf_stds],
-            label = "enkf",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot1,
-            1:length(kf_means),
-            [m[1] for m in kf_means],
-            ribbon = [s[1] for s in kf_stds],
-            label = "kf",
-            color = 5,
-            lw = 3,
-            ls = :dot,
-        )
-        plot!(
-            test_plot2,
-            1:length(kf_means),
-            [m[2] for m in kf_means],
-            ribbon = [s[2] for s in kf_stds],
-            label = "kf",
-            color = 5,
-            lw = 3,
-            ls = :dot,
-        )
-        test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "KF_oop-vs-standardEnKF_oop.png"))
     end
 end
 
