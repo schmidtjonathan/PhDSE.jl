@@ -19,8 +19,6 @@ function plot_test(gt, obs, H, num_lines=5; estim_means=missing, estim_stds=miss
 
     dim_state = size(gt, 2)
 
-    @show size(gt) size(obs)
-
     obs_idcs = H * collect(1:dim_state)
     s2m_idcs = indexin(1:dim_state, obs_idcs)
     if ismissing(num_lines)
@@ -124,14 +122,12 @@ function filtering_setup(D=100, observe_every=3, num_obs=100)
 
     ground_truth, observations = simulate_linear(A, Q, u, H, R, v, μ₀, Σ₀, num_obs)
 
-    savefig(plot_test(stack(ground_truth), stack(observations), H), "out/setup.png")
-
     return μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations
 end
 
-@info "Executing tests for standard Kalman filters"
-include("algorithms/kalman.jl")
-# @info "Executing tests for square-root Kalman filters"
-# include("algorithms/sqrt_kalman.jl")
+# @info "Executing tests for standard Kalman filters"
+# include("algorithms/kalman.jl")
+@info "Executing tests for square-root Kalman filters"
+include("algorithms/sqrt_kalman.jl")
 # @info "Executing tests for ensemble Kalman filters"
 # include("algorithms/enkf.jl")

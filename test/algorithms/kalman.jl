@@ -29,68 +29,20 @@
     @test all([C1 ≈ C2 for ((m1, C1), (m2, C2)) in zip(iip_traj, oop_traj)])
 
     if PLOT_RESULTS
-        iip_means = [m for (m, C) in iip_traj]
-        oop_means = [m for (m, C) in oop_traj]
-        iip_stds = [2sqrt.(diag(C)) for (m, C) in iip_traj]
-        oop_stds = [2sqrt.(diag(C)) for (m, C) in oop_traj]
-        using Plots
-        test_plot1 =
-            scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(
-            test_plot1,
-            1:length(ground_truth),
-            [gt[1] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
+        iip_means = stack([m for (m, C) in iip_traj])
+        oop_means = stack([m for (m, C) in oop_traj])
+
+        iip_stds = stack([2sqrt.(diag(C)) for (m, C) in iip_traj])
+        oop_stds = stack([2sqrt.(diag(C)) for (m, C) in oop_traj])
+        out_dir = mkpath("./out/kf_oop-vs-kf_iip")
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=oop_means, estim_stds=oop_stds),
+            joinpath(out_dir, "kf_oop.png")
         )
-        test_plot2 = plot(
-            1:length(ground_truth),
-            [gt[2] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=iip_means, estim_stds=iip_stds),
+            joinpath(out_dir, "kf_iip.png")
         )
-        plot!(
-            test_plot1,
-            1:length(iip_means),
-            [m[1] for m in iip_means],
-            ribbon = [s[1] for s in iip_stds],
-            label = "iip",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(iip_means),
-            [m[2] for m in iip_means],
-            ribbon = [s[2] for s in iip_stds],
-            label = "iip",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot1,
-            1:length(oop_means),
-            [m[1] for m in oop_means],
-            ribbon = [s[1] for s in oop_stds],
-            label = "oop",
-            color = 4,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(oop_means),
-            [m[2] for m in oop_means],
-            ribbon = [s[2] for s in oop_stds],
-            label = "oop",
-            color = 4,
-            lw = 3,
-        )
-        test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "kf_oop-vs-kf_iip.png"))
     end
     # for (k, v) in pairs(cache.entries)
     #     println("$k -> $(typeof(v)) of size $(size(v))")
@@ -133,67 +85,19 @@ end
     @test all([C1 ≈ C2 for ((m1, C1), (m2, C2)) in zip(standard_traj, joseph_traj)])
 
     if PLOT_RESULTS
-        standard_means = [m for (m, C) in standard_traj]
-        joseph_means = [m for (m, C) in joseph_traj]
-        standard_stds = [2sqrt.(diag(C)) for (m, C) in standard_traj]
-        joseph_stds = [2sqrt.(diag(C)) for (m, C) in joseph_traj]
-        using Plots
-        test_plot1 =
-            scatter(2:length(observations)+1, [o[1] for o in observations], color = 1)
-        plot!(
-            test_plot1,
-            1:length(ground_truth),
-            [gt[1] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
+        standard_means = stack([m for (m, C) in standard_traj])
+        joseph_means = stack([m for (m, C) in joseph_traj])
+
+        standard_stds = stack([2sqrt.(diag(C)) for (m, C) in standard_traj])
+        joseph_stds = stack([2sqrt.(diag(C)) for (m, C) in joseph_traj])
+        out_dir = mkpath("./out/kf_joseph-vs-kf_standard")
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=joseph_means, estim_stds=joseph_stds),
+            joinpath(out_dir, "kf_joseph.png")
         )
-        test_plot2 = plot(
-            1:length(ground_truth),
-            [gt[2] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=standard_means, estim_stds=standard_stds),
+            joinpath(out_dir, "kf_standard.png")
         )
-        plot!(
-            test_plot1,
-            1:length(standard_means),
-            [m[1] for m in standard_means],
-            ribbon = [s[1] for s in standard_stds],
-            label = "standard",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(standard_means),
-            [m[2] for m in standard_means],
-            ribbon = [s[2] for s in standard_stds],
-            label = "standard",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot1,
-            1:length(joseph_means),
-            [m[1] for m in joseph_means],
-            ribbon = [s[1] for s in joseph_stds],
-            label = "joseph",
-            color = 4,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(joseph_means),
-            [m[2] for m in joseph_means],
-            ribbon = [s[2] for s in joseph_stds],
-            label = "joseph",
-            color = 4,
-            lw = 3,
-        )
-        test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
-        savefig(test_plot, joinpath(mkpath("./out/"), "kf_oop-vs-kfjoseph_oop.png"))
     end
 end
