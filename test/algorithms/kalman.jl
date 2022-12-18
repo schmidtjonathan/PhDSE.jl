@@ -1,5 +1,4 @@
 @testset "Kalman filter (IIP) vs. Kalman filter (OOP)" begin
-    Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     cache = FilteringCache()
@@ -50,7 +49,6 @@
 end
 
 @testset "Kalman filter (OOP) vs. Kalman filter (Joseph) (OOP)" begin
-    Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
 

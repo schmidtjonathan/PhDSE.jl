@@ -1,14 +1,13 @@
 const ENSEMBLE_SIZE = 2000
 
 @testset "Kalman filter (OOP) vs. standard EnKF (OOP)" begin
-    Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
     measurement_noise_dist = MvNormal(zero(observations[1]), R)
     # Choose larger ensemble size when comparing to exact KF computation
-    ensemble = rand(Xoshiro(123), init_dist, ENSEMBLE_SIZE * 15)
+    ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE * 15)
 
     kf_m = copy(μ₀)
     enkf_m = copy(μ₀)
@@ -44,10 +43,6 @@ const ENSEMBLE_SIZE = 2000
         isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
         ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
     ])
-    @test all([
-        isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
-        ((m1, C1), (m2, C2)) in zip(kf_traj, enkf_traj)
-    ])
 
     if PLOT_RESULTS
         kf_means = stack([m for (m, C) in kf_traj])
@@ -68,7 +63,6 @@ const ENSEMBLE_SIZE = 2000
 end
 
 @testset "Standard EnKF (OOP) vs. O(d^3) OMF EnKF (OOP)" begin
-    Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
@@ -130,11 +124,6 @@ end
         isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
         ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
     ])
-    # @test all([
-    #     isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
-    #     ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
-    # ])
-
 
     if PLOT_RESULTS
         standard_means = stack([m for (m, C) in standard_traj])
@@ -145,17 +134,16 @@ end
         out_dir = mkpath("./out/standardEnKF_oop-vs-d3OMFEnKF_oop")
         savefig(
             plot_test(stack(ground_truth), stack(observations), H; estim_means=standard_means, estim_stds=standard_stds),
-            joinpath(out_dir, "kf.png")
+            joinpath(out_dir, "standard.png")
         )
         savefig(
             plot_test(stack(ground_truth), stack(observations), H; estim_means=omf_means, estim_stds=omf_stds),
-            joinpath(out_dir, "enkf.png")
+            joinpath(out_dir, "OD3.png")
         )
     end
 end
 
 @testset "O(d^3) OMF EnKF (OOP) vs. O(N^3) OMF EnKF (OOP)" begin
-    Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
@@ -221,10 +209,6 @@ end
         isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
         ((m1, C1), (m2, C2)) in zip(mil_traj, omf_traj)
     ])
-    # @test all([
-    #     isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
-    #     ((m1, C1), (m2, C2)) in zip(mil_traj, omf_traj)
-    # ])
 
     if PLOT_RESULTS
         mil_means = stack([m for (m, C) in mil_traj])
@@ -245,7 +229,6 @@ end
 end
 
 @testset "Standard EnKF (OOP) vs. Standard EnKF (IIP)" begin
-    Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
@@ -324,10 +307,6 @@ end
         isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
         ((m1, C1), (m2, C2)) in zip(oop_traj, iip_traj)
     ])
-    # @test all([
-    #     isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
-    #     ((m1, C1), (m2, C2)) in zip(oop_traj, iip_traj)
-    # ])
 
     if PLOT_RESULTS
         oop_means = stack([m for (m, C) in oop_traj])
@@ -350,12 +329,11 @@ end
 end
 
 @testset "Standard EnKF (IIP) vs. O(d^3) OMF EnKF (IIP) vs. O(N^3) OMF EnKF (IIP)" begin
-    Random.seed!(1234)
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
-    process_noise_dist(x) = MvNormal(zero(x), Q(x))
-    measurement_noise_dist(x) = MvNormal(zero(x), R(x))
+    process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
+    measurement_noise_dist = MvNormal(zero(observations[1]), R)
     standard_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
     omf_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
     omf_invR_ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE)
@@ -379,21 +357,21 @@ end
     for y in observations
         standard_ensemble = enkf_predict!(
             standard_cache,
-            A(standard_m),
-            process_noise_dist(standard_m),
-            u(standard_m),
+            A,
+            process_noise_dist,
+            u,
         )
         omf_ensemble = enkf_predict!(
             omf_cache,
-            A(omf_m),
-            process_noise_dist(omf_m),
-            u(omf_m),
+            A,
+            process_noise_dist,
+            u,
         )
         omf_invR_ensemble = enkf_predict!(
             omf_invR_cache,
-            A(omf_invR_m),
-            process_noise_dist(omf_invR_m),
-            u(omf_invR_m),
+            A,
+            process_noise_dist,
+            u,
         )
 
         standard_m, standard_C = ensemble_mean_cov(standard_ensemble)
@@ -402,33 +380,33 @@ end
 
         standard_ensemble = enkf_correct!(
             standard_cache,
-            H(standard_m),
-            measurement_noise_dist(y),
+            H,
+            measurement_noise_dist,
             y,
-            v(standard_m),
+            v,
         )
 
-        omf_centered_fens, omf_HX, omf_HA = PhDSE.A_HX_HA!(omf_cache, H(omf_m), v(omf_m))
+        omf_centered_fens, omf_HX, omf_HA = PhDSE.A_HX_HA!(omf_cache, H, v)
         omf_ensemble = enkf_matrixfree_correct!(
             omf_cache,
             omf_HX,
             omf_HA,
             omf_centered_fens,
-            measurement_noise_dist(y),
+            measurement_noise_dist,
             y;
             R_inverse = missing,
         )
 
         omf_invR_centered_fens, omf_invR_HX, omf_invR_HA =
-            PhDSE.A_HX_HA!(omf_invR_cache, H(omf_invR_m), v(omf_invR_m))
+            PhDSE.A_HX_HA!(omf_invR_cache, H, v)
         omf_invR_ensemble = enkf_matrixfree_correct!(
             omf_invR_cache,
             omf_invR_HX,
             omf_invR_HA,
             omf_invR_centered_fens,
-            measurement_noise_dist(y),
+            measurement_noise_dist,
             y;
-            R_inverse = inv(R(y)),
+            R_inverse = inv(R),
         )
 
         standard_m, standard_C = ensemble_mean_cov(standard_ensemble)
@@ -440,119 +418,38 @@ end
         push!(omf_invR_traj, (copy(omf_invR_m), copy(omf_invR_C)))
     end
 
-    # for ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
-    #     println("$m1 vs. $m2")
-    # end
+    @test all([
+        isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
+    ])
 
     @test all([
         isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
-        ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
-    ])
-    @test all([
-        isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
-        ((m1, C1), (m2, C2)) in zip(standard_traj, omf_traj)
-    ])
-    @test all([
-        isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
-        ((m1, C1), (m2, C2)) in zip(omf_traj, omf_invR_traj)
-    ])
-    @test all([
-        isapprox(C1, C2; atol = 0.1, rtol = 0.1) for
         ((m1, C1), (m2, C2)) in zip(omf_traj, omf_invR_traj)
     ])
 
     if PLOT_RESULTS
-        standard_means = [m for (m, C) in standard_traj]
-        omf_means = [m for (m, C) in omf_traj]
-        omf_invR_means = [m for (m, C) in omf_invR_traj]
-        standard_stds = [2sqrt.(diag(C)) for (m, C) in standard_traj]
-        omf_stds = [2sqrt.(diag(C)) for (m, C) in omf_traj]
-        omf_invR_stds = [2sqrt.(diag(C)) for (m, C) in omf_invR_traj]
-        using Plots
-        test_plot1 =
-            scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(
-            test_plot1,
-            1:length(ground_truth),
-            [gt[1] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
-        )
-        test_plot2 = plot(
-            1:length(ground_truth),
-            [gt[2] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
-        )
-        plot!(
-            test_plot1,
-            1:length(standard_means),
-            [m[1] for m in standard_means],
-            ribbon = [s[1] for s in standard_stds],
-            label = "standard",
-            color = 5,
-            lw = 3,
-            ls = :dot,
-        )
-        plot!(
-            test_plot2,
-            1:length(standard_means),
-            [m[2] for m in standard_means],
-            ribbon = [s[2] for s in standard_stds],
-            label = "standard",
-            color = 5,
-            lw = 3,
-            ls = :dot,
-        )
-        plot!(
-            test_plot1,
-            1:length(omf_means),
-            [m[1] for m in omf_means],
-            ribbon = [s[1] for s in omf_stds],
-            label = "omf",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(omf_means),
-            [m[2] for m in omf_means],
-            ribbon = [s[2] for s in omf_stds],
-            label = "omf",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot1,
-            1:length(omf_invR_means),
-            [m[1] for m in omf_invR_means],
-            ribbon = [s[1] for s in omf_invR_stds],
-            label = "omf_invR",
-            color = 4,
-            ls = :dashdot,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(omf_invR_means),
-            [m[2] for m in omf_invR_means],
-            ribbon = [s[2] for s in omf_invR_stds],
-            label = "omf_invR",
-            color = 4,
-            ls = :dashdot,
-            lw = 3,
-        )
-        test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
+        standard_means = stack([m for (m, C) in standard_traj])
+        omf_means = stack([m for (m, C) in omf_traj])
+        omf_invR_means = stack([m for (m, C) in omf_invR_traj])
+        standard_stds = stack([2sqrt.(diag(C)) for (m, C) in standard_traj])
+        omf_stds = stack([2sqrt.(diag(C)) for (m, C) in omf_traj])
+        omf_invR_stds = stack([2sqrt.(diag(C)) for (m, C) in omf_invR_traj])
+
+        out_dir = mkpath("./out/standardEnKF_iip-vs-d3OMFEnKF_iip-vs-N3OMFEnKF_iip")
         savefig(
-            test_plot,
-            joinpath(
-                mkpath("./out/"),
-                "standardEnKF_iip-vs-d3OMFEnKF_iip-vs-N3OMFEnKF_iip.png",
-            ),
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=standard_means, estim_stds=standard_stds),
+            joinpath(out_dir, "standard.png")
         )
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=omf_means, estim_stds=omf_stds),
+            joinpath(out_dir, "OD3.png")
+        )
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H; estim_means=omf_invR_means, estim_stds=omf_invR_stds),
+            joinpath(out_dir, "ON3.png")
+        )
+
     end
+
 end

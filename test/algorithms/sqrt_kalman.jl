@@ -1,5 +1,4 @@
 @testset "Kalman filter (OOP) vs. SqrtKF (IIP) vs. SqrtKF (OOP)" begin
-    Random.seed!(1234)
     upper_sqrt_to_mat(MU::UpperTriangular) = MU' * MU
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()

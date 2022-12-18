@@ -11,13 +11,16 @@ const PLOT_RESULTS = true
 
 
 """
-    gt:          size [T, D]
+    gt:          size [T+1, D]
     obs:         size [T, d]
-    estim_means: size [T, D]
+    estim_means: size [T+1, D]
 """
-function plot_test(gt, obs, H, num_lines=5; estim_means=missing, estim_stds=missing)
+function plot_test(gt, obs, H, num_lines=missing; estim_means=missing, estim_stds=missing)
 
     dim_state = size(gt, 2)
+
+    T_gt = 1:size(gt, 1)
+    T_obs = 2:size(gt, 1)
 
     obs_idcs = H * collect(1:dim_state)
     s2m_idcs = indexin(1:dim_state, obs_idcs)
@@ -30,7 +33,7 @@ function plot_test(gt, obs, H, num_lines=5; estim_means=missing, estim_stds=miss
 
     gpl = plot()
     for l in 1:even_spacing:dim_state
-        plot!(gpl, gt[:, l], legend=false, color="black")
+        plot!(gpl, T_gt, gt[:, l], legend=false, color="black")
         if !ismissing(estim_means)
             @assert size(estim_means) == size(gt)
             if !ismissing(estim_stds)
@@ -39,10 +42,10 @@ function plot_test(gt, obs, H, num_lines=5; estim_means=missing, estim_stds=miss
             else
                 estim_ribbon = nothing
             end
-            plot!(gpl, estim_means[:, l], ribbon=estim_ribbon, color=l, lw=2, alpha=0.5)
+            plot!(gpl, T_gt, estim_means[:, l], ribbon=estim_ribbon, color=l, lw=2, alpha=0.5)
         end
         if l ∈ obs_idcs
-            scatter!(gpl, obs[:, s2m_idcs[l]], markersize=2, label="", markershape=:x, color=l)
+            scatter!(gpl, T_obs, obs[:, s2m_idcs[l]], markersize=2, label="", markershape=:x, color=l)
         end
     end
 
@@ -82,33 +85,35 @@ function _matern(wiener_process_dimension, num_derivatives, lengthscale, dt)
 end
 
 function simulate_linear(
-    A, Q, u, H, R, v, μ₀, Σ₀, N::Int; rng = Random.GLOBAL_RNG,
+    A, Q, u, H, R, v, μ₀, Σ₀, N::Int
 )
-    x = rand(rng, MvNormal(μ₀, Σ₀))
+    x = rand(Xoshiro(1), MvNormal(μ₀, Σ₀))
     states = [x]
     observations = []
 
     for i in 1:N
-        push!(states, rand(rng, MvNormal(A * states[end] .+ u, Q)))
-        push!(observations, rand(rng, MvNormal(H * states[end] .+ v, R)))
+        push!(states, rand(Xoshiro(12), MvNormal(A * states[end] .+ u, Q)))
+        push!(observations, rand(Xoshiro(34), MvNormal(H * states[end] .+ v, R)))
     end
     return states, observations
 end
 
 stack(x) = copy(reduce(hcat, x)')
 
-function filtering_setup(D=100, observe_every=3, num_obs=100)
+function filtering_setup(D=100, observe_every=3, num_obs=30)
+
+    Random.seed!(1234)
 
     σ₀ = 0.001
-    σᵣ = 0.05
+    σᵣ = 0.03
 
-    matern_derivs = 2
+    matern_derivs = 1
     totaldim = D * (matern_derivs + 1)
 
-    μ₀ = zeros(totaldim)
+    μ₀ = rand(totaldim)
     Σ₀ = diagm(0=>σ₀ .* ones(totaldim))
 
-    tspan = (0.0, 10.0)
+    tspan = (0.0, 1.0)
     dt = (tspan[2] - tspan[1]) / num_obs
     A, Q = _matern(D, matern_derivs, 1.0, dt)
 
@@ -122,12 +127,17 @@ function filtering_setup(D=100, observe_every=3, num_obs=100)
 
     ground_truth, observations = simulate_linear(A, Q, u, H, R, v, μ₀, Σ₀, num_obs)
 
+    if PLOT_RESULTS
+        savefig(plot_test(stack(ground_truth), stack(observations), H), joinpath(mkpath("./out/"), "setup.png"))
+    end
+
+
     return μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations
 end
 
-# @info "Executing tests for standard Kalman filters"
-# include("algorithms/kalman.jl")
+@info "Executing tests for standard Kalman filters"
+include("algorithms/kalman.jl")
 @info "Executing tests for square-root Kalman filters"
 include("algorithms/sqrt_kalman.jl")
-# @info "Executing tests for ensemble Kalman filters"
-# include("algorithms/enkf.jl")
+@info "Executing tests for ensemble Kalman filters"
+include("algorithms/enkf.jl")
