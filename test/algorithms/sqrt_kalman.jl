@@ -1,5 +1,4 @@
 @testset "Kalman filter (OOP) vs. SqrtKF (IIP) vs. SqrtKF (OOP)" begin
-    Random.seed!(1234)
     upper_sqrt_to_mat(MU::UpperTriangular) = MU' * MU
 
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -24,37 +23,39 @@
     kf_traj = [(copy(μ₀), copy(Σ₀))]
     iip_traj = [(copy(μ₀), copy(Σ₀))]
     oop_traj = [(copy(μ₀), copy(Σ₀))]
+    sqrt_Q = UpperTriangular(cholesky(Q).U)
+    sqrt_R = UpperTriangular(cholesky(R).U)
     for y in observations
-        kf_m, kf_C = kf_predict(kf_m, kf_C, A(kf_m), Q(kf_m), u(kf_m))
+        kf_m, kf_C = kf_predict(kf_m, kf_C, A, Q, u)
         iip_sqrt_kf_m, iip_sqrt_kf_C = sqrt_kf_predict!(
             cache,
-            A(iip_sqrt_kf_m),
-            cholesky(Q(iip_sqrt_kf_m)).U,
-            u(iip_sqrt_kf_m),
+            A,
+            sqrt_Q,
+            u,
         )
         oop_sqrt_kf_m, oop_sqrt_kf_C = sqrt_kf_predict(
             oop_sqrt_kf_m,
             oop_sqrt_kf_C,
-            A(oop_sqrt_kf_m),
-            cholesky(Q(oop_sqrt_kf_m)).U,
-            u(oop_sqrt_kf_m),
+            A,
+            sqrt_Q,
+            u,
         )
 
-        kf_m, kf_C = kf_correct(kf_m, kf_C, H(kf_m), R(kf_m), y, v(kf_m))
+        kf_m, kf_C = kf_correct(kf_m, kf_C, H, R, y, v)
         iip_sqrt_kf_m, iip_sqrt_kf_C = sqrt_kf_correct!(
             cache,
-            H(iip_sqrt_kf_m),
-            cholesky(R(iip_sqrt_kf_m)).U,
+            H,
+            sqrt_R,
             y,
-            v(iip_sqrt_kf_m),
+            v,
         )
         oop_sqrt_kf_m, oop_sqrt_kf_C = sqrt_kf_correct(
             oop_sqrt_kf_m,
             oop_sqrt_kf_C,
-            H(oop_sqrt_kf_m),
-            cholesky(R(oop_sqrt_kf_m)).U,
+            H,
+            sqrt_R,
             y,
-            v(oop_sqrt_kf_m),
+            v,
         )
 
         push!(kf_traj, (copy(kf_m), copy(kf_C)))
@@ -70,90 +71,43 @@
     ])
 
     if PLOT_RESULTS
-        kf_means = [m for (m, C) in kf_traj]
-        iip_means = [m for (m, C) in iip_traj]
-        oop_means = [m for (m, C) in oop_traj]
-        kf_stds = [2sqrt.(diag(C)) for (m, C) in kf_traj]
-        iip_stds = [2sqrt.(diag(C)) for (m, C) in iip_traj]
-        oop_stds = [2sqrt.(diag(C)) for (m, C) in oop_traj]
-        using Plots
-        test_plot1 =
-            scatter(1:length(observations), [o[1] for o in observations], color = 1)
-        plot!(
-            test_plot1,
-            1:length(ground_truth),
-            [gt[1] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
-        )
-        test_plot2 = plot(
-            1:length(ground_truth),
-            [gt[2] for gt in ground_truth],
-            label = "gt",
-            color = :black,
-            lw = 5,
-            alpha = 0.4,
-        )
-        plot!(
-            test_plot1,
-            1:length(iip_means),
-            [m[1] for m in iip_means],
-            ribbon = [s[1] for s in iip_stds],
-            label = "sqrt iip",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(iip_means),
-            [m[2] for m in iip_means],
-            ribbon = [s[2] for s in iip_stds],
-            label = "sqrt iip",
-            color = 3,
-            lw = 3,
-        )
-        plot!(
-            test_plot1,
-            1:length(oop_means),
-            [m[1] for m in oop_means],
-            ribbon = [s[1] for s in oop_stds],
-            label = "sqrt oop",
-            color = 4,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(oop_means),
-            [m[2] for m in oop_means],
-            ribbon = [s[2] for s in oop_stds],
-            label = "sqrt oop",
-            color = 4,
-            lw = 3,
-        )
-        plot!(
-            test_plot1,
-            1:length(kf_means),
-            [m[1] for m in kf_means],
-            ribbon = [s[1] for s in kf_stds],
-            label = "kf",
-            color = 5,
-            lw = 3,
-        )
-        plot!(
-            test_plot2,
-            1:length(kf_means),
-            [m[2] for m in kf_means],
-            ribbon = [s[2] for s in kf_stds],
-            label = "kf",
-            color = 5,
-            lw = 3,
-        )
-        test_plot = plot(test_plot1, test_plot2, layout = (1, 2))
+        kf_means = stack([m for (m, C) in kf_traj])
+        iip_means = stack([m for (m, C) in iip_traj])
+        oop_means = stack([m for (m, C) in oop_traj])
+        kf_stds = stack([2sqrt.(diag(C)) for (m, C) in kf_traj])
+        iip_stds = stack([2sqrt.(diag(C)) for (m, C) in iip_traj])
+        oop_stds = stack([2sqrt.(diag(C)) for (m, C) in oop_traj])
+
+        out_dir = mkpath("./out/kf_oop-vs-sqrtkf_iip-vs-sqrtkf_oop")
         savefig(
-            test_plot,
-            joinpath(mkpath("./out/"), "kf_oop-vs-sqrtkf_iip-vs-sqrtkf_oop.png"),
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = kf_means,
+                estim_stds = kf_stds,
+            ),
+            joinpath(out_dir, "kf.png"),
+        )
+        savefig(
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = iip_means,
+                estim_stds = iip_stds,
+            ),
+            joinpath(out_dir, "sqrtkf_iip.png"),
+        )
+        savefig(
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = oop_means,
+                estim_stds = oop_stds,
+            ),
+            joinpath(out_dir, "sqrtkf_oop.png"),
         )
     end
     # for (k, v) in pairs(cache.entries)
