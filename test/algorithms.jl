@@ -9,14 +9,19 @@ using PhDSE
 
 const PLOT_RESULTS = true
 
-
 """
     gt:          size [T+1, D]
     obs:         size [T, d]
     estim_means: size [T+1, D]
 """
-function plot_test(gt, obs, H, num_lines=missing; estim_means=missing, estim_stds=missing)
-
+function plot_test(
+    gt,
+    obs,
+    H,
+    num_lines = missing;
+    estim_means = missing,
+    estim_stds = missing,
+)
     dim_state = size(gt, 2)
 
     T_gt = 1:size(gt, 1)
@@ -33,7 +38,7 @@ function plot_test(gt, obs, H, num_lines=missing; estim_means=missing, estim_std
 
     gpl = plot()
     for l in 1:even_spacing:dim_state
-        plot!(gpl, T_gt, gt[:, l], legend=false, color="black")
+        plot!(gpl, T_gt, gt[:, l], legend = false, color = "black")
         if !ismissing(estim_means)
             @assert size(estim_means) == size(gt)
             if !ismissing(estim_stds)
@@ -42,21 +47,35 @@ function plot_test(gt, obs, H, num_lines=missing; estim_means=missing, estim_std
             else
                 estim_ribbon = nothing
             end
-            plot!(gpl, T_gt, estim_means[:, l], ribbon=estim_ribbon, color=l, lw=2, alpha=0.5)
+            plot!(
+                gpl,
+                T_gt,
+                estim_means[:, l],
+                ribbon = estim_ribbon,
+                color = l,
+                lw = 2,
+                alpha = 0.5,
+            )
         end
         if l ∈ obs_idcs
-            scatter!(gpl, T_obs, obs[:, s2m_idcs[l]], markersize=2, label="", markershape=:x, color=l)
+            scatter!(
+                gpl,
+                T_obs,
+                obs[:, s2m_idcs[l]],
+                markersize = 2,
+                label = "",
+                markershape = :x,
+                color = l,
+            )
         end
     end
 
     return gpl
 end
 
-
 function projectionmatrix(dimension::Int64, num_derivatives::Int64, derivative::Integer)
-    kron(I(dimension), [i == (derivative + 1) ? 1.0 : 0.0 for i = 1:num_derivatives+1]')
+    kron(I(dimension), [i == (derivative + 1) ? 1.0 : 0.0 for i in 1:num_derivatives+1]')
 end
-
 
 function _matern(wiener_process_dimension, num_derivatives, lengthscale, dt)
     q = num_derivatives
@@ -85,7 +104,7 @@ function _matern(wiener_process_dimension, num_derivatives, lengthscale, dt)
 end
 
 function simulate_linear(
-    A, Q, u, H, R, v, μ₀, Σ₀, N::Int
+    A, Q, u, H, R, v, μ₀, Σ₀, N::Int,
 )
     x = rand(Xoshiro(1), MvNormal(μ₀, Σ₀))
     states = [x]
@@ -100,8 +119,7 @@ end
 
 stack(x) = copy(reduce(hcat, x)')
 
-function filtering_setup(D=100, observe_every=3, num_obs=30)
-
+function filtering_setup(D = 100, observe_every = 3, num_obs = 30)
     Random.seed!(1234)
 
     σ₀ = 0.001
@@ -111,16 +129,16 @@ function filtering_setup(D=100, observe_every=3, num_obs=30)
     totaldim = D * (matern_derivs + 1)
 
     μ₀ = rand(totaldim)
-    Σ₀ = diagm(0=>σ₀ .* ones(totaldim))
+    Σ₀ = diagm(0 => σ₀ .* ones(totaldim))
 
     tspan = (0.0, 1.0)
     dt = (tspan[2] - tspan[1]) / num_obs
     A, Q = _matern(D, matern_derivs, 1.0, dt)
 
-    H = diagm(0=>ones(D))[1:observe_every:end, :] * projectionmatrix(D, matern_derivs, 0)
+    H = diagm(0 => ones(D))[1:observe_every:end, :] * projectionmatrix(D, matern_derivs, 0)
     measdim, totaldim = size(H)
 
-    R = diagm(0=>σᵣ .* ones(measdim))
+    R = diagm(0 => σᵣ .* ones(measdim))
 
     u = 0.1 .* randn(totaldim)
     v = zeros(measdim)
@@ -128,9 +146,11 @@ function filtering_setup(D=100, observe_every=3, num_obs=30)
     ground_truth, observations = simulate_linear(A, Q, u, H, R, v, μ₀, Σ₀, num_obs)
 
     if PLOT_RESULTS
-        savefig(plot_test(stack(ground_truth), stack(observations), H), joinpath(mkpath("./out/"), "setup.png"))
+        savefig(
+            plot_test(stack(ground_truth), stack(observations), H),
+            joinpath(mkpath("./out/"), "setup.png"),
+        )
     end
-
 
     return μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations
 end

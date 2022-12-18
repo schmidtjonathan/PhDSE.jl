@@ -1,7 +1,6 @@
 const ENSEMBLE_SIZE = 2000
 
 @testset "Kalman filter (OOP) vs. standard EnKF (OOP)" begin
-
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
@@ -52,18 +51,29 @@ const ENSEMBLE_SIZE = 2000
 
         out_dir = mkpath("./out/KF_oop-vs-standardEnKF_oop")
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=kf_means, estim_stds=kf_stds),
-            joinpath(out_dir, "kf.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = kf_means,
+                estim_stds = kf_stds,
+            ),
+            joinpath(out_dir, "kf.png"),
         )
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=enkf_means, estim_stds=enkf_stds),
-            joinpath(out_dir, "enkf.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = enkf_means,
+                estim_stds = enkf_stds,
+            ),
+            joinpath(out_dir, "enkf.png"),
         )
     end
 end
 
 @testset "Standard EnKF (OOP) vs. O(d^3) OMF EnKF (OOP)" begin
-
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
@@ -133,18 +143,29 @@ end
 
         out_dir = mkpath("./out/standardEnKF_oop-vs-d3OMFEnKF_oop")
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=standard_means, estim_stds=standard_stds),
-            joinpath(out_dir, "standard.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = standard_means,
+                estim_stds = standard_stds,
+            ),
+            joinpath(out_dir, "standard.png"),
         )
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=omf_means, estim_stds=omf_stds),
-            joinpath(out_dir, "OD3.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = omf_means,
+                estim_stds = omf_stds,
+            ),
+            joinpath(out_dir, "OD3.png"),
         )
     end
 end
 
 @testset "O(d^3) OMF EnKF (OOP) vs. O(N^3) OMF EnKF (OOP)" begin
-
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
@@ -218,18 +239,29 @@ end
 
         out_dir = mkpath("./out/d3OMFEnKF_oop-vs-N3OMFEnKF_oop")
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=mil_means, estim_stds=mil_stds),
-            joinpath(out_dir, "ON3.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = mil_means,
+                estim_stds = mil_stds,
+            ),
+            joinpath(out_dir, "ON3.png"),
         )
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=omf_means, estim_stds=omf_stds),
-            joinpath(out_dir, "OD3.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = omf_means,
+                estim_stds = omf_stds,
+            ),
+            joinpath(out_dir, "OD3.png"),
         )
     end
 end
 
 @testset "Standard EnKF (OOP) vs. Standard EnKF (IIP)" begin
-
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
@@ -302,7 +334,6 @@ end
         push!(iip_traj, (copy(iip_m), copy(iip_C)))
     end
 
-
     @test all([
         isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
         ((m1, C1), (m2, C2)) in zip(oop_traj, iip_traj)
@@ -316,20 +347,29 @@ end
 
         out_dir = mkpath("./out/standardEnKF_oop-vs-standardEnKF_iip")
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=oop_means, estim_stds=oop_stds),
-            joinpath(out_dir, "oop.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = oop_means,
+                estim_stds = oop_stds,
+            ),
+            joinpath(out_dir, "oop.png"),
         )
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=iip_means, estim_stds=iip_stds),
-            joinpath(out_dir, "iip.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = iip_means,
+                estim_stds = iip_stds,
+            ),
+            joinpath(out_dir, "iip.png"),
         )
-
     end
-
 end
 
 @testset "Standard EnKF (IIP) vs. O(d^3) OMF EnKF (IIP) vs. O(N^3) OMF EnKF (IIP)" begin
-
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
@@ -438,18 +478,34 @@ end
 
         out_dir = mkpath("./out/standardEnKF_iip-vs-d3OMFEnKF_iip-vs-N3OMFEnKF_iip")
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=standard_means, estim_stds=standard_stds),
-            joinpath(out_dir, "standard.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = standard_means,
+                estim_stds = standard_stds,
+            ),
+            joinpath(out_dir, "standard.png"),
         )
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=omf_means, estim_stds=omf_stds),
-            joinpath(out_dir, "OD3.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = omf_means,
+                estim_stds = omf_stds,
+            ),
+            joinpath(out_dir, "OD3.png"),
         )
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=omf_invR_means, estim_stds=omf_invR_stds),
-            joinpath(out_dir, "ON3.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = omf_invR_means,
+                estim_stds = omf_invR_stds,
+            ),
+            joinpath(out_dir, "ON3.png"),
         )
-
     end
-
 end

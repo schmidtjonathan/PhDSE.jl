@@ -1,5 +1,4 @@
 @testset "Kalman filter (IIP) vs. Kalman filter (OOP)" begin
-
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     cache = FilteringCache()
     init_cache_moments!(cache, μ₀, Σ₀)
@@ -35,12 +34,24 @@
         oop_stds = stack([2sqrt.(diag(C)) for (m, C) in oop_traj])
         out_dir = mkpath("./out/kf_oop-vs-kf_iip")
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=oop_means, estim_stds=oop_stds),
-            joinpath(out_dir, "kf_oop.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = oop_means,
+                estim_stds = oop_stds,
+            ),
+            joinpath(out_dir, "kf_oop.png"),
         )
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=iip_means, estim_stds=iip_stds),
-            joinpath(out_dir, "kf_iip.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = iip_means,
+                estim_stds = iip_stds,
+            ),
+            joinpath(out_dir, "kf_iip.png"),
         )
     end
     # for (k, v) in pairs(cache.entries)
@@ -49,7 +60,6 @@
 end
 
 @testset "Kalman filter (OOP) vs. Kalman filter (Joseph) (OOP)" begin
-
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
 
     standard_m = copy(μ₀)
@@ -90,12 +100,24 @@ end
         joseph_stds = stack([2sqrt.(diag(C)) for (m, C) in joseph_traj])
         out_dir = mkpath("./out/kf_joseph-vs-kf_standard")
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=joseph_means, estim_stds=joseph_stds),
-            joinpath(out_dir, "kf_joseph.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = joseph_means,
+                estim_stds = joseph_stds,
+            ),
+            joinpath(out_dir, "kf_joseph.png"),
         )
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=standard_means, estim_stds=standard_stds),
-            joinpath(out_dir, "kf_standard.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = standard_means,
+                estim_stds = standard_stds,
+            ),
+            joinpath(out_dir, "kf_standard.png"),
         )
     end
 end

@@ -80,16 +80,34 @@
 
         out_dir = mkpath("./out/kf_oop-vs-sqrtkf_iip-vs-sqrtkf_oop")
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=kf_means, estim_stds=kf_stds),
-            joinpath(out_dir, "kf.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = kf_means,
+                estim_stds = kf_stds,
+            ),
+            joinpath(out_dir, "kf.png"),
         )
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=iip_means, estim_stds=iip_stds),
-            joinpath(out_dir, "sqrtkf_iip.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = iip_means,
+                estim_stds = iip_stds,
+            ),
+            joinpath(out_dir, "sqrtkf_iip.png"),
         )
         savefig(
-            plot_test(stack(ground_truth), stack(observations), H; estim_means=oop_means, estim_stds=oop_stds),
-            joinpath(out_dir, "sqrtkf_oop.png")
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = oop_means,
+                estim_stds = oop_stds,
+            ),
+            joinpath(out_dir, "sqrtkf_oop.png"),
         )
     end
     # for (k, v) in pairs(cache.entries)
