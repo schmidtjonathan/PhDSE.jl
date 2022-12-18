@@ -6,7 +6,7 @@ const ENSEMBLE_SIZE = 2000
     process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
     measurement_noise_dist = MvNormal(zero(observations[1]), R)
     # Choose larger ensemble size when comparing to exact KF computation
-    ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE * 15)
+    ensemble = rand(Xoshiro(42), init_dist, ENSEMBLE_SIZE * 5)
 
     kf_m = copy(μ₀)
     enkf_m = copy(μ₀)
