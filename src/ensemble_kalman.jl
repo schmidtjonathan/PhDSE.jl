@@ -552,7 +552,6 @@ export enkf_predict!
 export enkf_correct!
 export enkf_matrixfree_correct!
 
-
 # function sqrt_enkf_predict(
 #     ensemble::AbstractMatrix{T},
 #     Z_a::AbstractMatrix{T},
@@ -570,7 +569,6 @@ export enkf_matrixfree_correct!
 
 #     return Z_f
 # end
-
 
 function etkf_correct(
     forecast_ensemble::AbstractMatrix{T},
@@ -596,12 +594,13 @@ function etkf_correct(
 
     U, singular_values, V = svd(
         (R_chol \ observation_deviations)' / sqrt(N - 1),
-        full=true, alg=LinearAlgebra.QRIteration()
+        full = true, alg = LinearAlgebra.QRIteration(),
     )
 
-    squared_transform_eigenvalues = 1.0 ./ (1.0 .+ singular_values.^2.0)
+    squared_transform_eigenvalues = 1.0 ./ (1.0 .+ singular_values .^ 2.0)
     if size(H, 1) < N
-        squared_transform_eigenvalues = vcat(squared_transform_eigenvalues, ones(N - size(H, 1)))
+        squared_transform_eigenvalues =
+            vcat(squared_transform_eigenvalues, ones(N - size(H, 1)))
     end
     Σ = Diagonal(squared_transform_eigenvalues)
 
@@ -614,11 +613,9 @@ function etkf_correct(
     Z_a = Z_f * transform_matrix
     analysis_ensemble = analysis_mean .+ Z_a
     return analysis_ensemble
-
 end
 
 export etkf_correct
-
 
 # function eakf_correct(
 #     forecast_ensemble::AbstractMatrix{T},
@@ -637,7 +634,6 @@ export etkf_correct
 #     #     measured_fc_ens .+= v
 #     # end
 #     residual = R_sqrt \ (y - (H * ensemble_mean(forecast_ensemble) + v))  # whitened
-
 
 #     fcmean, Pf = ensemble_mean_cov(forecast_ensemble)
 #     # @show size(Z_f), typeof(Z_f)
@@ -665,7 +661,6 @@ export etkf_correct
 #     Gamma_A = Gamma_A[1:N-1,1:N-1]
 #     Gamma_A = convert(Matrix, Gamma_A)
 #     Z_A = Z_A[:,1:N-1]
-
 
 #     @show size(U_A) size(Σ_A) size(Gamma_A) size(C_A) size(Z_f)
 #     transformation_matrix_T = U_A * sqrt(inv(Σ_A' * Σ_A + I)) * sqrt(inv(Gamma_A)) * Z_A' * Z_f

@@ -74,9 +74,7 @@ function plot_test(
     return gpl
 end
 
-
 function filtering_setup_lorenz()
-
     function lorenz96(u, p, t)
         du = similar(u)
         N = length(u)
@@ -86,7 +84,7 @@ function filtering_setup_lorenz()
         @inbounds du[2] = (u[3] - u[N]) * u[1] - u[2] + F
         @inbounds du[N] = (u[1] - u[N-2]) * u[N-1] - u[N] + F
         # then the general case
-        for n = 3:(N-1)
+        for n in 3:(N-1)
             @inbounds du[n] = (u[n+1] - u[n-2]) * u[n-1] - u[n] + F
         end
         return du
@@ -102,14 +100,14 @@ function filtering_setup_lorenz()
     tspan = (0.0, 5.0)
     num_data_points = 200
 
-    Δt = (tspan[2]-tspan[1])/num_data_points
+    Δt = (tspan[2] - tspan[1]) / num_data_points
 
-    μ₀ =  zeros(dim_state)
+    μ₀ = zeros(dim_state)
     u₀ = copy(μ₀)
     # u₀[1] += 0.01
     u₀ .+= 3 .* rand(size(u₀)...)
     Σ₀ = Matrix{Float64}(initial_state_std^2 * I(dim_state))
-    A(x) = I + Δt * ForwardDiff.jacobian(u->lorenz96(u, [force], 0.0), x)
+    A(x) = I + Δt * ForwardDiff.jacobian(u -> lorenz96(u, [force], 0.0), x)
     Q(x) = Matrix{Float64}(state_noise_std^2 * I(dim_state))
     u(x) = (x + Δt * lorenz96(x, [force], 0.0)) - A(x) * x
     H(x) = Matrix{Float64}(I(dim_state))[1:2:end, :]
@@ -125,13 +123,14 @@ function filtering_setup_lorenz()
         solve(
             ODEProblem(lorenz96, u₀, tspan, θ),
             AutoTsit5(Rosenbrock23()),
-            saveat=tspan[1]:Δt:tspan[2]
+            saveat = tspan[1]:Δt:tspan[2],
+        ),
+    )
+    observations =
+        H(μ₀) * ground_truth .+ rand(
+            Xoshiro(4141),
+            MvNormal(zeros(dim_obs), R(y₀)), size(ground_truth, 2),
         )
-    )
-    observations = H(μ₀) * ground_truth .+ rand(
-        Xoshiro(4141),
-        MvNormal(zeros(dim_obs), R(y₀)), size(ground_truth, 2),
-    )
 
     observations = observations'
     ground_truth = ground_truth'
@@ -148,7 +147,6 @@ end
 savefig(plot_lorenz(ground_truth, observations), joinpath(OUT_DIR, "setup.png"))
 
 function lorenz_kf()
-
     kf_m = copy(μ₀)
     kf_C = copy(Σ₀)
     kf_traj = [(copy(μ₀), copy(Σ₀))]
@@ -162,14 +160,19 @@ function lorenz_kf()
     kf_means = stack([m for (m, C) in kf_traj[2:end]])
     kf_stds = stack([2sqrt.(diag(C)) for (m, C) in kf_traj[2:end]])
 
-    res_plot = plot_test(ground_truth, observations, H(kf_means[1]); estim_means=kf_means, estim_stds=kf_stds)
+    res_plot = plot_test(
+        ground_truth,
+        observations,
+        H(kf_means[1]);
+        estim_means = kf_means,
+        estim_stds = kf_stds,
+    )
 
     savefig(res_plot, joinpath(OUT_DIR, "kf.png"))
     return res_plot
 end
 
 function lorenz_enkf()
-
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist(x) = MvNormal(zero(x), Q(x))
     measurement_noise_dist(x) = MvNormal(zero(x), R(x))
@@ -192,14 +195,19 @@ function lorenz_enkf()
     kf_means = stack([m for (m, C) in kf_traj[2:end]])
     kf_stds = stack([2sqrt.(diag(C)) for (m, C) in kf_traj[2:end]])
 
-    res_plot = plot_test(ground_truth, observations, H(kf_means[1]); estim_means=kf_means, estim_stds=kf_stds)
+    res_plot = plot_test(
+        ground_truth,
+        observations,
+        H(kf_means[1]);
+        estim_means = kf_means,
+        estim_stds = kf_stds,
+    )
 
     savefig(res_plot, joinpath(OUT_DIR, "enkf.png"))
     return res_plot
 end
 
 function lorenz_etkf()
-
     init_dist = MvNormal(μ₀, Σ₀)
     process_noise_dist(x) = MvNormal(zero(x), Q(x))
     measurement_noise_dist(x) = MvNormal(zero(x), R(x))
@@ -222,14 +230,18 @@ function lorenz_etkf()
     kf_means = stack([m for (m, C) in kf_traj[2:end]])
     kf_stds = stack([2sqrt.(diag(C)) for (m, C) in kf_traj[2:end]])
 
-    res_plot = plot_test(ground_truth, observations, H(kf_means[1]); estim_means=kf_means, estim_stds=kf_stds)
+    res_plot = plot_test(
+        ground_truth,
+        observations,
+        H(kf_means[1]);
+        estim_means = kf_means,
+        estim_stds = kf_stds,
+    )
 
     savefig(res_plot, joinpath(OUT_DIR, "etkf.png"))
     return res_plot
 end
 
-
 kf_plot = lorenz_kf()
 enkf_plot = lorenz_enkf()
 etkf_plot = lorenz_etkf()
-
