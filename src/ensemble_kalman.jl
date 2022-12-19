@@ -574,140 +574,45 @@ export enkf_matrixfree_correct!
 
 function etkf_correct(
     forecast_ensemble::AbstractMatrix{T},
-    # Z_f::AbstractMatrix{T},
     H::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{T},
     v::Union{AbstractVector{T},Missing} = missing,
 ) where {T}
-
-    # =============== TIPPET + BISHOP VERSION ===========
-    # D, N = size(forecast_ensemble)
-    # R_sqrt = cholesky(Symmetric(measurement_noise_dist.Σ / (N-1), :L))
-
-    # # Whitening
-    # # measured_fc_ens = H * forecast_ensemble
-    # # if !ismissing(v)
-    # #     measured_fc_ens .+= v
-    # # end
-    # residual = cholesky(Symmetric(measurement_noise_dist.Σ)) \ (y - (H * ensemble_mean(forecast_ensemble) + v))  # whitened
-    # Eq. (16) in Tippett 2003. >>>
-    # H̃ = R_sqrt \ H
-    # HZf = H̃ * Z_f
-    # @show size(HZf)
-    # # Rinv_HZf =  R_sqrt \ HZf
-    # # HT_Rinv_HZF = H̃' * Rinv_HZf
-    # M = HZf' * HZf
-    # Γ, C = eigen(Symmetric(M), sortby=λ -> -λ)
-    # # C, sqrt_Γ, V = svd(HZf', full=true)
-    # # @show size(C), size(sqrt_Γ)
-    # # Γ = Diagonal(sqrt_Γ.^2)
-    # Γ = Diagonal(map(x->x > 1e-10 ? x : 0.0, Γ)) # Diagonal(Γ)
-    # @show Γ.diag[1] Γ.diag[end]
-    # I_plus_gamma = Γ + I
-
-    # transformation_matrix_T = C * inv(sqrt(I_plus_gamma))  # I_plus_gamma is diagonal, so it's fine.
-    # Z_a = Z_f * transformation_matrix_T  # Xap
-
-    # # Eq. (16b) in Bishop 2001.
-    # E = H̃ * Z_f * C * inv(sqrt(Diagonal(map(x->x > 1e-10 ? x : 1.0, Γ.diag))))
-    # K = Z_f * C * sqrt(Γ) * inv(I_plus_gamma) * E'
-    # fc_mean = ensemble_mean(forecast_ensemble)  # xf
-    # analysis_mean = ensemble_mean(fc_mean .+ K * residual)   # xa
-    # analysis_ensemble = Z_a .+ analysis_mean
-    # return analysis_ensemble, analysis_mean, Z_a
-    # ===================================================
-
-    # # ================= SANGOMA VERSION =================
-    # @show size(Z_f), typeof(Z_f)
-    # S = H * Z_f
-    # # S = H * forecast_ensemble .- H * ensemble_mean(forecast_ensemble)
-    # @show size(S), typeof(S)
-    # @show size(R_sqrt), typeof(R_sqrt)
-    # sqrtRinvS = R_sqrt \ S
-    # @show size(sqrtRinvS), typeof(sqrtRinvS)
-    # S̃ = sqrt((1.0 / (N-1))) * sqrtRinvS
-    # @show size(S̃), typeof(S̃)
-    # U_T, Σ_T, V_T = svd(copy(S̃'))
-    # @show Σ_T
-    # Σ_T = Diagonal(Σ_T)
-
-    # if size(Σ_T,2) > N
-    #     Σ_T = Σ_T[:,1:N]
-    #     V_T = V_T[:,1:N]
-    # end
-
-    # transformation_matrix_T = U_T * inv(sqrt(Σ_T * Σ_T' + I))
-    # @show size(transformation_matrix_T), typeof(transformation_matrix_T)
-    # Z_a = Z_f * transformation_matrix_T * U_T'  # Xap
-    # @show size(Z_a), typeof(Z_a)
-
-    # K = (1.0 / sqrt(N-1)) * Z_f * U_T * inv(Σ_T' * Σ_T + I) * Σ_T * V_T'
-    # @show size(K), typeof(K)
-    # analysis_mean = ensemble_mean(forecast_ensemble) + K * residual
-    # analysis_ensemble = Z_a .+ analysis_mean
-    # return analysis_ensemble, analysis_mean, Z_a
-    # # ===================================================
-
-    # # ================= PYTHON PGK VERSION =================
     # https://github.com/thiery-lab/data-assimilation
-    num_particle = size(forecast_ensemble, 2)
-    state_mean = ensemble_mean(forecast_ensemble)
-    state_deviations = forecast_ensemble .- state_mean  # This is Z_f
-    # Note: compared to the `observation_particles` variable defined in the
-    # perturbed observations EnKF implementation here these observation 'particles'
-    # are pre addition of observation noise
+    N = size(forecast_ensemble, 2)
+    forecast_mean = ensemble_mean(forecast_ensemble)
+    Z_f = forecast_ensemble .- forecast_mean  # This is Z_f
+
     simulated_observations = H * forecast_ensemble
     if !ismissing(v)
         simulated_observations .+= v
     end
     observation_mean = ensemble_mean(simulated_observations)
     observation_deviations = simulated_observations .- observation_mean
-    observation_error = y - observation_mean
-    # Let X = state_deviations, Y = observation_deviations, N = num_particle,
-    # R = observation_noise_covar, Z = post_state_deviations, I = identity(N)
-    # Then for consistency with Kalman filter covariance update we require
-    # Z.T @ Z = X.T @ inv(I +  Y @ inv(R) @ Y.T / (N - 1))) @ X
-    # If we find a N x N transform matrix T such that
-    # T @ T = inv(I +  Y @ inv(R) @ Y.T / (N - 1))) then Z = T @ X.
-    # Defining M = Y @ inv(chol(R / (N - 1)).T) then
-    # I + M @ M.T = I + Y @ inv(R) @ Y.T / (N - 1)) and T @ T = inv(I + M @ M.T).
-    # If U, s, V_T = svd(M) such that M = U @ diag(s) @ V_T then
-    # I + M @ M.T = U @ U.T + U @ diag(s**2) @ U.T = U @ diag(1 + s**2) @ U.T
-    # and so T = U @ diag(1 / (1 + s**2)**0.5) @ U.T
+    residual = y - observation_mean
 
-    U, Σ_vec, V = svd((cholesky(measurement_noise_dist.Σ) \ observation_deviations)' / sqrt(num_particle - 1), full=true, alg=LinearAlgebra.QRIteration())
+    R_chol = cholesky(measurement_noise_dist.Σ)
 
-    squared_transform_matrix_eigenvalues = 1.0 ./ (1.0 .+ Σ_vec.^2.0)
-    if size(H, 1) < num_particle
-        squared_transform_matrix_eigenvalues = vcat(squared_transform_matrix_eigenvalues, ones(num_particle - size(H, 1)))
+    U, singular_values, V = svd(
+        (R_chol \ observation_deviations)' / sqrt(N - 1),
+        full=true, alg=LinearAlgebra.QRIteration()
+    )
+
+    squared_transform_eigenvalues = 1.0 ./ (1.0 .+ singular_values.^2.0)
+    if size(H, 1) < N
+        squared_transform_eigenvalues = vcat(squared_transform_eigenvalues, ones(N - size(H, 1)))
     end
-    Σ = Diagonal(squared_transform_matrix_eigenvalues)
-
+    Σ = Diagonal(squared_transform_eigenvalues)
 
     transform_matrix = (U * sqrt(Σ)) * U'
 
-    @show size(H)
-    @show size(U)
-    @show size(V)
-    @show size(state_deviations)
-    @show size(observation_deviations)
-    @show size(Σ)
-    @show size(transform_matrix)
+    whitened_residuals = (R_chol \ residual) / (N - 1)
+    K = Z_f * ((U * Σ * U') * observation_deviations')
 
-    # Let e = observation_error, x = state_mean, z = post_state_mean and
-    # X, Y, R, N, I as above
-    # For consistency with the Kalman filter mean update we require that
-    # z = x + X.T @ inv(I + Y @ inv(R) @ Y.T / (N - 1)) @ Y.T @ inv(R) @ e / (N - 1)
-    # Reusing U and s from above we have that
-    # inv(I + Y @ inv(R) @ Y.T / (N - 1)) = diag(1 / (1 + s**2)) @ U.T
-    # and so
-    # z = x + X.T @ U @ diag(1 / (1 + s**2)) @ U.T @ Y @ inv(R) @ e / (N - 1)
-    kalman_gain_mult_observation_error = state_deviations * U * Σ * U' * observation_deviations' * (cholesky(measurement_noise_dist.Σ) \ observation_error) / (num_particle - 1)
-
-    post_state_mean = state_mean + kalman_gain_mult_observation_error
-    post_state_deviations = state_deviations * transform_matrix
-    analysis_ensemble = post_state_deviations .+ post_state_mean
+    analysis_mean = forecast_mean + K * whitened_residuals
+    Z_a = Z_f * transform_matrix
+    analysis_ensemble = analysis_mean .+ Z_a
     return analysis_ensemble
 
 end
