@@ -676,12 +676,12 @@ function etkf_correct(
     # I + M @ M.T = U @ U.T + U @ diag(s**2) @ U.T = U @ diag(1 + s**2) @ U.T
     # and so T = U @ diag(1 / (1 + s**2)**0.5) @ U.T
 
-    U, Σ_vec, V = svd((cholesky(measurement_noise_dist.Σ) \ observation_deviations)' / sqrt(num_particle - 1))
+    U, Σ_vec, V = svd((cholesky(measurement_noise_dist.Σ) \ observation_deviations)' / sqrt(num_particle - 1), full=true, alg=LinearAlgebra.QRIteration())
 
     squared_transform_matrix_eigenvalues = 1.0 ./ (1.0 .+ Σ_vec.^2.0)
-    # if size(H, 1) < num_particle
-    #     squared_transform_matrix_eigenvalues = vcat(squared_transform_matrix_eigenvalues, ones(num_particle - size(H, 1)))
-    # end
+    if size(H, 1) < num_particle
+        squared_transform_matrix_eigenvalues = vcat(squared_transform_matrix_eigenvalues, ones(num_particle - size(H, 1)))
+    end
     Σ = Diagonal(squared_transform_matrix_eigenvalues)
 
 
