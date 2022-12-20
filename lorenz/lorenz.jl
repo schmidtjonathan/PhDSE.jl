@@ -243,7 +243,6 @@ function lorenz_etkf()
     return res_plot
 end
 
-
 # function lorenz_eakf()
 #     init_dist = MvNormal(μ₀, Σ₀)
 #     process_noise_dist(x) = MvNormal(zero(x), Q(x))

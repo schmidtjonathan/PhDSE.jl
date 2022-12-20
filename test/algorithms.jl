@@ -120,7 +120,6 @@ end
 stack(x) = copy(reduce(hcat, x)')
 
 function filtering_setup(D = 100, num_obs = 100)
-
     Random.seed!(42)
 
     σ₀ = 0.001

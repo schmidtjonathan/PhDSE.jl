@@ -552,7 +552,6 @@ export enkf_predict!
 export enkf_correct!
 export enkf_matrixfree_correct!
 
-
 function etkf_correct(
     forecast_ensemble::AbstractMatrix{tT},
     H::AbstractMatrix{tT},
@@ -571,14 +570,14 @@ function etkf_correct(
     R_chol = cholesky(measurement_noise_dist.Σ)
     HX_mean = ensemble_mean(HX)
     HX = HX .- HX_mean
-    Zy = (1.0 / sqrt(N-1)) * HX
+    Zy = (1.0 / sqrt(N - 1)) * HX
     Zy_T_Rinv_sqrt = (Zy' / R_chol.U)
-    C, G, F_T = svd(Zy_T_Rinv_sqrt, full=true, alg=LinearAlgebra.QRIteration())
-    G[G .< eps(tT)] .= 0.0
+    C, G, F_T = svd(Zy_T_Rinv_sqrt, full = true, alg = LinearAlgebra.QRIteration())
+    G[G.<eps(tT)] .= 0.0
     if length(G) < N
         G = vcat(G, zeros(N - length(G)))
     end
-    G = Diagonal(1.0 ./ sqrt.(1.0 .+ G.^2))
+    G = Diagonal(1.0 ./ sqrt.(1.0 .+ G .^ 2))
     T = C * G * C'
 
     forecast_mean = ensemble_mean(forecast_ensemble)
@@ -595,7 +594,6 @@ function etkf_correct(
 end
 
 export etkf_correct
-
 
 function denkf_correct(
     forecast_ensemble::AbstractMatrix{T},
@@ -630,7 +628,6 @@ function denkf_correct(
 end
 
 export denkf_correct
-
 
 # function eakf_correct(
 #     forecast_ensemble::AbstractMatrix{tT},
@@ -694,4 +691,3 @@ export denkf_correct
 # end
 
 # export eakf_correct
-

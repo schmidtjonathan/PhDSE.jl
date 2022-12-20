@@ -510,7 +510,6 @@ end
     end
 end
 
-
 @testset "Kalman filter (OOP) vs. ETKF (OOP)" begin
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
@@ -542,7 +541,7 @@ end
             measurement_noise_dist,
             y,
             v,
-            1.0
+            1.0,
         )
         etkf_m, etkf_C = ensemble_mean_cov(ensemble)
 
@@ -584,7 +583,6 @@ end
         )
     end
 end
-
 
 @testset "Kalman filter (OOP) vs. DEnKF (OOP)" begin
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -658,8 +656,6 @@ end
         )
     end
 end
-
-
 
 # @testset "Kalman filter (OOP) vs. EAKF (OOP)" begin
 #     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
