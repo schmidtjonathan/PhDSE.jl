@@ -1,4 +1,4 @@
-const ENSEMBLE_SIZE = 2000
+const ENSEMBLE_SIZE = 40
 
 @testset "Kalman filter (OOP) vs. standard EnKF (OOP)" begin
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -506,6 +506,156 @@ end
                 estim_stds = omf_invR_stds,
             ),
             joinpath(out_dir, "ON3.png"),
+        )
+    end
+end
+
+
+@testset "Kalman filter (OOP) vs. ETKF (OOP)" begin
+    μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
+    init_dist = MvNormal(μ₀, Σ₀)
+    process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
+    measurement_noise_dist = MvNormal(zero(observations[1]), R)
+    # Choose larger ensemble size when comparing to exact KF computation
+    ensemble = rand(init_dist, ENSEMBLE_SIZE)
+
+    kf_m = copy(μ₀)
+    etkf_m = copy(μ₀)
+    kf_C = copy(Σ₀)
+    etkf_C = copy(Σ₀)
+    kf_traj = [(copy(μ₀), copy(Σ₀))]
+    etkf_traj = [(copy(μ₀), copy(Σ₀))]
+    for y in observations
+        kf_m, kf_C = kf_predict(kf_m, kf_C, A, Q, u)
+        ensemble = enkf_predict(
+            ensemble,
+            A,
+            process_noise_dist,
+            u,
+        )
+        etkf_m, etkf_C = ensemble_mean_cov(ensemble)
+
+        kf_m, kf_C = kf_correct(kf_m, kf_C, H, R, y, v)
+        ensemble = etkf_correct(
+            ensemble,
+            H,
+            measurement_noise_dist,
+            y,
+            v,
+            1.0
+        )
+        etkf_m, etkf_C = ensemble_mean_cov(ensemble)
+
+        push!(kf_traj, (copy(kf_m), copy(kf_C)))
+        push!(etkf_traj, (copy(etkf_m), copy(etkf_C)))
+    end
+
+    @test all([
+        isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(kf_traj, etkf_traj)
+    ])
+
+    if PLOT_RESULTS
+        kf_means = stack([m for (m, C) in kf_traj])
+        etkf_means = stack([m for (m, C) in etkf_traj])
+        kf_stds = stack([2sqrt.(diag(C)) for (m, C) in kf_traj])
+        etkf_stds = stack([2sqrt.(diag(C)) for (m, C) in etkf_traj])
+
+        out_dir = mkpath("./out/KF_oop-vs-ETKF_oop")
+        savefig(
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = kf_means,
+                estim_stds = kf_stds,
+            ),
+            joinpath(out_dir, "kf.png"),
+        )
+        savefig(
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = etkf_means,
+                estim_stds = etkf_stds,
+            ),
+            joinpath(out_dir, "etkf.png"),
+        )
+    end
+end
+
+
+@testset "Kalman filter (OOP) vs. EAKF (OOP)" begin
+    μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
+    init_dist = MvNormal(μ₀, Σ₀)
+    process_noise_dist = MvNormal(zero(ground_truth[1]), Q)
+    measurement_noise_dist = MvNormal(zero(observations[1]), R)
+    # Choose larger ensemble size when comparing to exact KF computation
+    ensemble = rand(init_dist, ENSEMBLE_SIZE)
+
+    kf_m = copy(μ₀)
+    eakf_m = copy(μ₀)
+    kf_C = copy(Σ₀)
+    eakf_C = copy(Σ₀)
+    kf_traj = [(copy(μ₀), copy(Σ₀))]
+    eakf_traj = [(copy(μ₀), copy(Σ₀))]
+    for y in observations
+        kf_m, kf_C = kf_predict(kf_m, kf_C, A, Q, u)
+        ensemble = enkf_predict(
+            ensemble,
+            A,
+            process_noise_dist,
+            u,
+        )
+        eakf_m, eakf_C = ensemble_mean_cov(ensemble)
+
+        kf_m, kf_C = kf_correct(kf_m, kf_C, H, R, y, v)
+        ensemble = eakf_correct(
+            ensemble,
+            H,
+            measurement_noise_dist,
+            y,
+            v,
+            1.0
+        )
+        eakf_m, eakf_C = ensemble_mean_cov(ensemble)
+
+        push!(kf_traj, (copy(kf_m), copy(kf_C)))
+        push!(eakf_traj, (copy(eakf_m), copy(eakf_C)))
+    end
+
+    @test all([
+        isapprox(m1, m2; atol = 0.1, rtol = 0.1) for
+        ((m1, C1), (m2, C2)) in zip(kf_traj, eakf_traj)
+    ])
+
+    if PLOT_RESULTS
+        kf_means = stack([m for (m, C) in kf_traj])
+        eakf_means = stack([m for (m, C) in eakf_traj])
+        kf_stds = stack([2sqrt.(diag(C)) for (m, C) in kf_traj])
+        eakf_stds = stack([2sqrt.(diag(C)) for (m, C) in eakf_traj])
+
+        out_dir = mkpath("./out/KF_oop-vs-EAKF_oop")
+        savefig(
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = kf_means,
+                estim_stds = kf_stds,
+            ),
+            joinpath(out_dir, "kf.png"),
+        )
+        savefig(
+            plot_test(
+                stack(ground_truth),
+                stack(observations),
+                H;
+                estim_means = eakf_means,
+                estim_stds = eakf_stds,
+            ),
+            joinpath(out_dir, "eakf.png"),
         )
     end
 end
