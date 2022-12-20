@@ -596,62 +596,65 @@ end
 
 export etkf_correct
 
-# function eakf_correct(
-#     forecast_ensemble::AbstractMatrix{T},
-#     Z_f::AbstractMatrix{T},
-#     H::AbstractMatrix{T},
-#     measurement_noise_dist::MvNormal,
-#     y::AbstractVector{T},
-#     v::Union{AbstractVector{T},Missing} = missing,
-# ) where {T}
-#     D, N = size(forecast_ensemble)
-#     R_sqrt = sqrt(measurement_noise_dist.Σ) #cholesky(Symmetric(measurement_noise_dist.Σ, :L))
 
-#     # Whitening
-#     # measured_fc_ens = H * forecast_ensemble
-#     # if !ismissing(v)
-#     #     measured_fc_ens .+= v
-#     # end
-#     residual = R_sqrt \ (y - (H * ensemble_mean(forecast_ensemble) + v))  # whitened
+function eakf_correct(
+    forecast_ensemble::AbstractMatrix{tT},
+    H::AbstractMatrix{tT},
+    measurement_noise_dist::MvNormal,
+    y::AbstractVector{tT},
+    v::Union{AbstractVector{tT},Missing} = missing,
+    λ::tT = 1.0,
+) where {tT}
+    N = size(forecast_ensemble, 2)
+    forecast_mean = ensemble_mean(forecast_ensemble)
+    Z_f = forecast_ensemble .- forecast_mean
 
-#     fcmean, Pf = ensemble_mean_cov(forecast_ensemble)
-#     # @show size(Z_f), typeof(Z_f)
-#     # S = H * Z_f
-#     S = H * forecast_ensemble .- ensemble_mean(H * forecast_ensemble)
-#     # @show size(S), typeof(S)
-#     # @show size(R_sqrt), typeof(R_sqrt)
-#     sqrtRinvS = R_sqrt \ S
-#     # @show size(sqrtRinvS), typeof(sqrtRinvS)
-#     S̃ = sqrt((1.0 / (N-1))) * sqrtRinvS
-#     # @show size(S̃), typeof(S̃)
-#     U_A, Σ_A, V_A = svd(S̃')
-#     Σ_A = Diagonal(Σ_A)
-#     @show size(Σ_A)
-#     U_A = U_A[:,1:N-1]
-#     Σ_A = Σ_A[1:N-1,1:N-1]
-#     V_A = V_A[:,1:N-1]
+    HX = H * forecast_ensemble
+    if !ismissing(v)
+        HX .+= v
+    end
 
-#     Z_A,sqrtGamma_A,dummy = svd(Xfp)
-#     sqrtGamma_A = Diagonal(sqrtGamma_A)
-#     # @show Σ_A
-#     Gamma_A = Diagonal(sqrtGamma_A)
+    R_chol = cholesky(measurement_noise_dist.Σ)
+    HX_mean = ensemble_mean(HX)
+    HX = HX .- HX_mean
+    Zy = (1.0 / sqrt(N-1)) * HX
+    Zy_T_Rinv_sqrt = (Zy' / R_chol.U)
+    U, D, F_T = svd(Zy_T_Rinv_sqrt, full=true)
+    D[D .< eps(tT)] .= 0.0
+    if length(D) < N
+        D = vcat(D, zeros(N - length(D)))
+    end
+    B = Diagonal(1.0 ./ sqrt.(1.0 .+ D.^2))
 
-#     Gamma_A = sqrtGamma_A.^2 / (N-1)
-#     Gamma_A = Gamma_A[1:N-1,1:N-1]
-#     Gamma_A = convert(Matrix, Gamma_A)
-#     Z_A = Z_A[:,1:N-1]
+    F, G, F_T2 = svd((1.0 / sqrt(N-1)) * Z_f', full=true)
 
-#     @show size(U_A) size(Σ_A) size(Gamma_A) size(C_A) size(Z_f)
-#     transformation_matrix_T = U_A * sqrt(inv(Σ_A' * Σ_A + I)) * sqrt(inv(Gamma_A)) * Z_A' * Z_f
-#     # @show size(transformation_matrix_T), typeof(transformation_matrix_T)
-#     Z_a = Z_f * transformation_matrix_T  # Xap
-#     # @show size(Z_a), typeof(Z_a)
+    G[G .< eps(tT)] .= 0.0
+    if any(G .== 0.0)
+        error("Non-zero singular values in Z_f decomposition.")
+    end
+    G_inv = 1.0 ./ G
 
-#     K = (1.0 / sqrt(N-1)) * Z_f * U_A * inv(Σ_A' * Σ_A + I) * Σ_A * V_A'
-#     # @show size(K), typeof(K)
-#     analysis_mean = ensemble_mean(forecast_ensemble) + K * residual
-#     analysis_ensemble = Z_a .+ analysis_mean
-#     return analysis_ensemble, analysis_mean, Z_a
-# end
+    if length(G) < N
+        G = vcat(G, zeros(N - length(G)))
+        G_inv = vcat(G_inv, zeros(N - length(G_inv)))
+    end
 
-# export eakf_correct
+    G = Diagonal(G)
+    G_inv = Diagonal(G_inv)
+
+    T = U * B * U'
+    A = F * G * T * G_inv * F'
+
+    Z_a = (λ / sqrt(N - 1)) * Z_f * A'
+
+    K = Z_a * T' * Zy'
+
+    whitened_residual = R_chol \ (y - HX_mean)
+    analysis_mean = forecast_mean .+ K * whitened_residual
+    analysis_ensemble = analysis_mean .+ sqrt(N - 1) * Z_a
+
+    return analysis_ensemble
+end
+
+export eakf_correct
+
