@@ -552,66 +552,45 @@ export enkf_predict!
 export enkf_correct!
 export enkf_matrixfree_correct!
 
-# function sqrt_enkf_predict(
-#     ensemble::AbstractMatrix{T},
-#     Z_a::AbstractMatrix{T},
-#     Φ::AbstractMatrix{T},
-#     process_noise_dist::MvNormal,
-#     u::Union{AbstractVector{T},Missing} = missing,
-# ) where {T}
-#     # ASSUMING LEFT MATRIX SQUARE ROOTS HERE, i.e. M = LᵀL, as opposed to sqrt_kalman
-#     # sqrt_ensemble_cov could e.g. be: sqrt(1.0 / (N - 1)) * centered_ensemble(ensemble)
-#     dyn = Φ * Z_a
-#     if !ismissing(u)
-#         dyn .+= u
-#     end
-#     Z_f = [dyn  cholesky(process_noise_dist.Σ).L]
-
-#     return Z_f
-# end
 
 function etkf_correct(
-    forecast_ensemble::AbstractMatrix{T},
-    H::AbstractMatrix{T},
+    forecast_ensemble::AbstractMatrix{tT},
+    H::AbstractMatrix{tT},
     measurement_noise_dist::MvNormal,
-    y::AbstractVector{T},
-    v::Union{AbstractVector{T},Missing} = missing,
-) where {T}
-    # https://github.com/thiery-lab/data-assimilation
+    y::AbstractVector{tT},
+    v::Union{AbstractVector{tT},Missing} = missing,
+    λ::tT = 1.0,
+) where {tT}
     N = size(forecast_ensemble, 2)
-    forecast_mean = ensemble_mean(forecast_ensemble)
-    Z_f = forecast_ensemble .- forecast_mean  # This is Z_f
 
-    simulated_observations = H * forecast_ensemble
+    HX = H * forecast_ensemble
     if !ismissing(v)
-        simulated_observations .+= v
+        HX .+= v
     end
-    observation_mean = ensemble_mean(simulated_observations)
-    observation_deviations = simulated_observations .- observation_mean
-    residual = y - observation_mean
 
     R_chol = cholesky(measurement_noise_dist.Σ)
-
-    U, singular_values, V = svd(
-        (R_chol \ observation_deviations)' / sqrt(N - 1),
-        full = true, alg = LinearAlgebra.QRIteration(),
-    )
-
-    squared_transform_eigenvalues = 1.0 ./ (1.0 .+ singular_values .^ 2.0)
-    if size(H, 1) < N
-        squared_transform_eigenvalues =
-            vcat(squared_transform_eigenvalues, ones(N - size(H, 1)))
+    HX_mean = ensemble_mean(HX)
+    HX = HX .- HX_mean
+    Zy = (1.0 / sqrt(N-1)) * HX
+    Zy_T_Rinv_sqrt = (Zy' / R_chol.U)
+    C, G, F_T = svd(Zy_T_Rinv_sqrt, full=true)
+    G[G .< eps(tT)] .= 0.0
+    if length(G) < N
+        G = vcat(G, zeros(N - length(G)))
     end
-    Σ = Diagonal(squared_transform_eigenvalues)
+    G = Diagonal(1.0 ./ sqrt.(1.0 .+ G.^2))
+    T = C * G * C'
 
-    transform_matrix = (U * sqrt(Σ)) * U'
+    forecast_mean = ensemble_mean(forecast_ensemble)
+    Z_f = forecast_ensemble .- forecast_mean
+    Z_a = (λ / sqrt(N - 1)) * Z_f * T
 
-    whitened_residuals = (R_chol \ residual) / (N - 1)
-    K = Z_f * ((U * Σ * U') * observation_deviations')
+    K = Z_a * T' * Zy'
 
-    analysis_mean = forecast_mean + K * whitened_residuals
-    Z_a = Z_f * transform_matrix
-    analysis_ensemble = analysis_mean .+ Z_a
+    whitened_residual = R_chol \ (y - HX_mean)
+    analysis_mean = forecast_mean .+ K * whitened_residual
+    analysis_ensemble = analysis_mean .+ sqrt(N - 1) * Z_a
+
     return analysis_ensemble
 end
 
