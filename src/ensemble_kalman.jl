@@ -597,6 +597,41 @@ end
 export etkf_correct
 
 
+function denkf_correct(
+    forecast_ensemble::AbstractMatrix{T},
+    H::AbstractMatrix{T},
+    measurement_noise_dist::MvNormal,
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    # Sakov and Oke, 2008. "A deterministic formulation of the ensemble Kalman filter...".
+    # (i) Given the forecast ensemble Xf , calculate the ensemble mean,
+    # or forecast xf by (4), and the ensemble anomalies Af by (5).
+    forecast_mean = ensemble_mean(forecast_ensemble)
+    Z_f = centered_ensemble(forecast_ensemble)
+    # (ii) Calculate the analysis xa by using the Kalman analysis eq. (1).
+    HX = H * forecast_ensemble
+    # ---| Along the way: (iii) Calculate the analysed anomalies (for later)
+    HZ_f = H * Z_f
+    if !ismissing(v)
+        HX .+= v
+        HZ_f .+= v
+    end
+    HX_mean = ensemble_mean(HX)
+    residual = y - HX_mean
+    PH, HPH = _calc_PH_HPH(forecast_ensemble, H)
+    Ŝ = HPH + measurement_noise_dist.Σ
+    K̂ = PH / cholesky!(Symmetric(Ŝ))
+    analysis_mean = forecast_mean + K̂ * residual
+    Z_a = Z_f - 0.5 * K̂ * HZ_f
+    # (iv) Calculate the analysed ensemble by offsetting the ana- lysed anomalies by the analysis:
+    analysis_ensemble = analysis_mean .+ Z_a
+    return analysis_ensemble
+end
+
+export denkf_correct
+
+
 # function eakf_correct(
 #     forecast_ensemble::AbstractMatrix{tT},
 #     H::AbstractMatrix{tT},
