@@ -573,7 +573,7 @@ function etkf_correct(
     HX = HX .- HX_mean
     Zy = (1.0 / sqrt(N-1)) * HX
     Zy_T_Rinv_sqrt = (Zy' / R_chol.U)
-    C, G, F_T = svd(Zy_T_Rinv_sqrt, full=true)
+    C, G, F_T = svd(Zy_T_Rinv_sqrt, full=true, alg=LinearAlgebra.QRIteration())
     G[G .< eps(tT)] .= 0.0
     if length(G) < N
         G = vcat(G, zeros(N - length(G)))
@@ -597,64 +597,66 @@ end
 export etkf_correct
 
 
-function eakf_correct(
-    forecast_ensemble::AbstractMatrix{tT},
-    H::AbstractMatrix{tT},
-    measurement_noise_dist::MvNormal,
-    y::AbstractVector{tT},
-    v::Union{AbstractVector{tT},Missing} = missing,
-    λ::tT = 1.0,
-) where {tT}
-    N = size(forecast_ensemble, 2)
-    forecast_mean = ensemble_mean(forecast_ensemble)
-    Z_f = forecast_ensemble .- forecast_mean
+# function eakf_correct(
+#     forecast_ensemble::AbstractMatrix{tT},
+#     H::AbstractMatrix{tT},
+#     measurement_noise_dist::MvNormal,
+#     y::AbstractVector{tT},
+#     v::Union{AbstractVector{tT},Missing} = missing,
+#     λ::tT = 1.0,
+# ) where {tT}
+#     # Anderson, 2001. "An Ensemble Adjustment Kalman Filter for Data Assimilation".
+#     # Appendix A.
+#     N = size(forecast_ensemble, 2)
+#     forecast_mean = ensemble_mean(forecast_ensemble)
+#     Z_f = forecast_ensemble .- forecast_mean
 
-    HX = H * forecast_ensemble
-    if !ismissing(v)
-        HX .+= v
-    end
+#     HX = H * forecast_ensemble
+#     if !ismissing(v)
+#         HX .+= v
+#     end
 
-    R_chol = cholesky(measurement_noise_dist.Σ)
-    HX_mean = ensemble_mean(HX)
-    HX = HX .- HX_mean
-    Zy = (1.0 / sqrt(N-1)) * HX
-    Zy_T_Rinv_sqrt = (Zy' / R_chol.U)
-    U, D, F_T = svd(Zy_T_Rinv_sqrt, full=true)
-    D[D .< eps(tT)] .= 0.0
-    if length(D) < N
-        D = vcat(D, zeros(N - length(D)))
-    end
-    B = Diagonal(1.0 ./ sqrt.(1.0 .+ D.^2))
+#     R_chol = cholesky(measurement_noise_dist.Σ)
+#     HX_mean = ensemble_mean(HX)
+#     HX = HX .- HX_mean
+#     Zy = (1.0 / sqrt(N-1)) * HX
+#     Zy_T_Rinv_sqrt = (Zy' / R_chol.U)
+#     U, D, F_T = svd(Zy_T_Rinv_sqrt, full=true, alg=LinearAlgebra.QRIteration())
+#     D[D .< eps(tT)] .= 0.0
+#     if length(D) < N
+#         D = vcat(D, zeros(N - length(D)))
+#     end
+#     B = Diagonal(1.0 ./ sqrt.(1.0 .+ D.^2))
 
-    F, G, F_T2 = svd((1.0 / sqrt(N-1)) * Z_f', full=true)
+#     F, G, F_T2 = svd((1.0 / sqrt(N-1)) * Z_f', full=true, alg=LinearAlgebra.QRIteration())
 
-    G[G .< eps(tT)] .= 0.0
-    if any(G .== 0.0)
-        error("Non-zero singular values in Z_f decomposition.")
-    end
-    G_inv = 1.0 ./ G
+#     G[G .< eps(tT)] .= 0.0
+#     if any(G .== 0.0)
+#         error("Zero-singular values in Z_f decomposition.")
+#     end
+#     G_inv = 1.0 ./ G
 
-    if length(G) < N
-        G = vcat(G, zeros(N - length(G)))
-        G_inv = vcat(G_inv, zeros(N - length(G_inv)))
-    end
+#     if length(G) < N
+#         G = vcat(G, zeros(N - length(G)))
+#         G_inv = vcat(G_inv, zeros(N - length(G_inv)))
+#     end
 
-    G = Diagonal(G)
-    G_inv = Diagonal(G_inv)
+#     G = Diagonal(G)
+#     G_inv = Diagonal(G_inv)
 
-    T = U * B * U'
-    A = F * G * T * G_inv * F'
+#     T = U * B * U'
+#     A = F * G * T * G_inv * F'
 
-    Z_a = (λ / sqrt(N - 1)) * Z_f * A'
+#     Z_a = (λ / sqrt(N - 1)) * Z_f * A'
 
-    K = Z_a * T' * Zy'
+#     K = Z_a * T' * Zy'
 
-    whitened_residual = R_chol \ (y - HX_mean)
-    analysis_mean = forecast_mean .+ K * whitened_residual
-    analysis_ensemble = analysis_mean .+ sqrt(N - 1) * Z_a
+#     whitened_residual = R_chol \ (y - HX_mean)
+#     analysis_mean = forecast_mean .+ K * whitened_residual
+#     analysis_ensemble = analysis_mean .+ sqrt(N - 1) * Z_a
 
-    return analysis_ensemble
-end
+#     return analysis_ensemble
+# end
 
-export eakf_correct
+# export eakf_correct
 
