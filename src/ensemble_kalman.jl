@@ -144,6 +144,33 @@ function _calc_PH_HPH(ensemble, H)
     return PH / (N - 1), HPH / (N - 1)
 end
 
+
+function _calc_PH_HPH!(c::FilteringCache, H::AbstractMatrix{T}, A::AbstractMatrix{T}) where {T}
+    d, D = size(H)
+    N = get(c.entries, (typeof(D), size(D), "N")) do
+        error("Ensemble size N is missing in FilteringCache.")
+    end
+    PH = get!(c.entries, (Matrix{T}, (D, d), "PHt"), zeros(D, d))
+    HPH = get!(c.entries, (Matrix{T}, (D, d), "HPHt"), zeros(d, d))
+    meas = get!(
+        c.entries,
+        (Vector{T}, (d, ), "H-mul-X_i"),
+        Vector{T}(undef, d),
+    )
+
+    PH .= 0.0
+    HPH .= 0.0
+    @inbounds @simd for i in 1:N
+        centered = view(A, 1:D, i)
+        mul!(meas, H, centered)
+        mul!(PH, centered, meas', 1.0, 1.0)
+        mul!(HPH, meas, meas', 1.0, 1.0)
+    end
+    rdiv!(PH, (N-1.0))
+    rdiv!(HPH, (N-1.0))
+    return PH, HPH
+end
+
 # <<<
 
 """
@@ -213,7 +240,7 @@ function enkf_matrixfree_correct(
     R_inverse::Union{AbstractMatrix{T},Missing} = missing,
 ) where {T}
     D, N = size(forecast_ensemble)
-    Nsub1 = N - 1
+    Nsub1 = N - 1.0
     d = length(y)
     data_plus_noise = rand(measurement_noise_dist, N) .+ y
     residual = data_plus_noise - HX
@@ -349,13 +376,10 @@ function A_HX_HA!(
     )
     centered_ensemble!(A, ens_mean, forecast_ensemble)
 
-    measured_ens_mean =
-        get!(
-            c.entries,
-            (Vector{T}, (d,), "measured_forecast_ensemble_mean"),
-            Vector{T}(undef, d),
-        )
-    centered_ensemble!(HA, measured_ens_mean, HX)
+    mul!(HA, H, A)
+    if !ismissing(v)
+        HA .+= v
+    end
     return A, HX, HA
 end
 
@@ -385,7 +409,7 @@ function enkf_correct!(
     N = get(c.entries, (typeof(D), size(D), "N")) do
         error("Ensemble size N is missing in FilteringCache.")
     end
-    Nsub1 = N - 1
+    Nsub1 = N - 1.0
     forecast_ensemble = get(c.entries, (Matrix{T}, (D, N), "forecast_ensemble")) do
         error("Cannot correct, no forecast ensemble in cache.")
     end
@@ -396,10 +420,6 @@ function enkf_correct!(
     )
 
     A, HX, HA = A_HX_HA!(c, H, v)
-    # TODO: turn these into tests >>>>>>>>>>>>>>>>>>>>>>>>>v
-    @assert A ≈ centered_ensemble(forecast_ensemble)
-    @assert HX ≈ H * forecast_ensemble
-    @assert HA ≈ H * A
 
     # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
     residual = get!(c.entries, (typeof(HX), size(HX), "residual"), similar(HX))
@@ -407,17 +427,11 @@ function enkf_correct!(
     residual .+= y
     residual .-= HX
 
-    Σ̂ = get!(c.entries, (Matrix{T}, (D, D), "Σ̂"), Matrix{T}(undef, D, D))
-    rdiv!(mul!(Σ̂, A, A'), Nsub1)
-    cross_cov = get!(c.entries, (Matrix{T}, (D, d), "cross_cov"), Matrix{T}(undef, D, d))
-    mul!(cross_cov, Symmetric(Σ̂), H')
-    Ŝ = get!(c.entries, (Matrix{T}, (d, d), "Ŝ"), Matrix{T}(undef, d, d))
-    mul!(Ŝ, H, cross_cov)
-    Ŝ .+= measurement_noise_dist.Σ
-    K̂ = cross_cov
-    rdiv!(K̂, cholesky!(Symmetric(Ŝ, :L)))
+    PH, HPH = _calc_PH_HPH!(c, H, A)
+    HPH .+= measurement_noise_dist.Σ
+    rdiv!(PH, cholesky!(Symmetric(HPH, :L)))
     copy!(ensemble, forecast_ensemble)
-    mul!(ensemble, K̂, residual, 1.0, 1.0)
+    mul!(ensemble, PH, residual, 1.0, 1.0)
     return ensemble
 end
 
@@ -455,7 +469,7 @@ function enkf_matrixfree_correct!(
 ) where {T}
     d = size(HX, 1)
     D, N = size(A)
-    Nsub1 = N - 1
+    Nsub1 = N - 1.0
     forecast_ensemble = get(c.entries, (Matrix{T}, (D, N), "forecast_ensemble")) do
         error("Cannot correct, no forecast ensemble in cache.")
     end
