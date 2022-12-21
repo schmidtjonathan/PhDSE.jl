@@ -7,7 +7,7 @@ using Plots
 
 using PhDSE
 
-const PLOT_RESULTS = true
+const PLOT_RESULTS = false
 
 """
     gt:          size [T+1, D]
