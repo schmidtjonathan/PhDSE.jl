@@ -1,4 +1,4 @@
-const ENSEMBLE_SIZE = 500
+const ENSEMBLE_SIZE = 1000
 
 @testset "Kalman filter (OOP) vs. standard EnKF (OOP)" begin
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -113,14 +113,15 @@ end
 
         # _A = centered_ensemble(omf_ensemble)
         HX = H * omf_ensemble .+ v
-        HA = centered_ensemble(HX)
+        cent_ens = centered_ensemble(omf_ensemble)
+        HA = H * cent_ens .+ v
         omf_ensemble = enkf_matrixfree_correct(
             omf_ensemble,
             HX,
             HA,
             measurement_noise_dist,
             y;
-            # A = _A,
+            A = cent_ens,
             R_inverse = missing,
         )
         standard_m, standard_C = ensemble_mean_cov(standard_ensemble)
@@ -196,26 +197,28 @@ end
         omf_m, omf_C = ensemble_mean_cov(omf_ensemble)
 
         mil_HX = H * mil_ensemble .+ v
-        mil_HA = centered_ensemble(mil_HX)
+        mil_cent_ens = centered_ensemble(mil_ensemble)
+        mil_HA = H * mil_cent_ens .+ v
         mil_ensemble = enkf_matrixfree_correct(
             mil_ensemble,
             mil_HX,
             mil_HA,
             measurement_noise_dist,
             y;
-            # A = _A,
+            A = mil_cent_ens,
             R_inverse = inv(R),
         )
 
         omf_HX = H * omf_ensemble .+ v
-        omf_HA = centered_ensemble(omf_HX)
+        omf_cent_ens = centered_ensemble(omf_ensemble)
+        omf_HA = H * omf_cent_ens .+ v
         omf_ensemble = enkf_matrixfree_correct(
             omf_ensemble,
             omf_HX,
             omf_HA,
             measurement_noise_dist,
             y;
-            # A = _A,
+            A = omf_cent_ens,
             R_inverse = missing,
         )
 
@@ -368,6 +371,57 @@ end
         )
     end
 end
+
+
+@testset "Auxiliary ensemble functions: IIP vs. OOP" begin
+    m0, C0 = rand(100), diagm(0=>(2.0 .* randn(100)).^2)
+    init_dist = MvNormal(m0, C0)
+    H = rand(50, 100)
+    v = rand(50)
+
+    ensemble = rand(init_dist, ENSEMBLE_SIZE)
+
+    _m = similar(m0)
+    _m = ensemble_mean!(_m , ensemble)
+    @test _m ≈ ensemble_mean(ensemble)
+
+    _ens = similar(ensemble)
+    _m2 = similar(m0)
+    _ens = centered_ensemble!(_ens, _m2, ensemble)
+    @test _ens ≈ centered_ensemble(ensemble)
+    @test _m2 ≈ ensemble_mean(ensemble)
+
+    _ens2 = similar(ensemble)
+    _m3 = similar(m0)
+    _C = similar(C0)
+    _m3, _C = ensemble_mean_cov!(_C, _ens2, _m3, ensemble)
+    expec_m, expec_C = ensemble_mean_cov(ensemble)
+    @test _m3 ≈ expec_m
+    @test _C ≈ expec_C
+    @test _ens2 ≈ centered_ensemble(ensemble)
+
+
+    cache = FilteringCache()
+    ensemble_size = size(ensemble, 2)
+    setindex!(
+        cache.entries, ensemble,
+        (typeof(ensemble), size(ensemble), "forecast_ensemble"),
+    )
+    setindex!(
+        cache.entries, ensemble_size, (typeof(ensemble_size), size(ensemble_size), "N"),
+    )
+    _A, _HX, _HA = PhDSE.A_HX_HA!(cache, H, v)
+
+    @test _A ≈ centered_ensemble(ensemble)
+    @test _HX ≈ H * ensemble .+ v
+    @test _HA ≈ H * _A .+ v
+
+    oopPH, oopHPH = PhDSE._calc_PH_HPH(ensemble, H)
+    iipPH, iipHPH = PhDSE._calc_PH_HPH!(cache, H, _A)
+    @test oopPH ≈ iipPH
+    @test oopHPH ≈ iipHPH
+end
+
 
 @testset "Standard EnKF (IIP) vs. O(d^3) OMF EnKF (IIP) vs. O(N^3) OMF EnKF (IIP)" begin
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
