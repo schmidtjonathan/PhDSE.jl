@@ -243,6 +243,42 @@ function lorenz_etkf()
     return res_plot
 end
 
+function lorenz_serial_etkf()
+    init_dist = MvNormal(μ₀, Σ₀)
+    process_noise_dist(x) = MvNormal(zero(x), Q(x))
+    measurement_noise_dist(x) = MvNormal(zero(x), R(x))
+    ensemble = rand(init_dist, ENSEMBLE_SIZE)
+
+    kf_m = copy(μ₀)
+    kf_C = copy(Σ₀)
+    kf_traj = [(copy(μ₀), copy(Σ₀))]
+    for y in [observations[i, :] for i in axes(observations, 1)]
+        ensemble = enkf_predict(ensemble, A(kf_m), process_noise_dist(kf_m), u(kf_m))
+
+        kf_m, kf_C = ensemble_mean_cov(ensemble)
+
+        ensemble =
+            serial_etkf_correct(ensemble, H(kf_m), measurement_noise_dist(y), y, v(y))
+
+        kf_m, kf_C = ensemble_mean_cov(ensemble)
+        push!(kf_traj, (copy(kf_m), copy(kf_C)))
+    end
+
+    kf_means = stack([m for (m, C) in kf_traj[2:end]])
+    kf_stds = stack([2sqrt.(diag(C)) for (m, C) in kf_traj[2:end]])
+
+    res_plot = plot_test(
+        ground_truth,
+        observations,
+        H(kf_means[1]);
+        estim_means = kf_means,
+        estim_stds = kf_stds,
+    )
+
+    savefig(res_plot, joinpath(OUT_DIR, "serial_etkf.png"))
+    return res_plot
+end
+
 # function lorenz_eakf()
 #     init_dist = MvNormal(μ₀, Σ₀)
 #     process_noise_dist(x) = MvNormal(zero(x), Q(x))
@@ -284,5 +320,7 @@ kf_plot = lorenz_kf()
 enkf_plot = lorenz_enkf()
 @info "Ensemble Transform Kalman filter with N = $ENSEMBLE_SIZE"
 etkf_plot = lorenz_etkf()
+@info "Serial Ensemble Transform Kalman filter with N = $ENSEMBLE_SIZE"
+serial_etkf_plot = lorenz_serial_etkf()
 # @info "Ensemble Adjustment Kalman filter with N = $ENSEMBLE_SIZE"
 # eakf_plot = lorenz_eakf()

@@ -144,8 +144,11 @@ function _calc_PH_HPH(ensemble, H)
     return PH / (N - 1), HPH / (N - 1)
 end
 
-
-function _calc_PH_HPH!(c::FilteringCache, H::AbstractMatrix{T}, A::AbstractMatrix{T}) where {T}
+function _calc_PH_HPH!(
+    c::FilteringCache,
+    H::AbstractMatrix{T},
+    A::AbstractMatrix{T},
+) where {T}
     d, D = size(H)
     N = get(c.entries, (typeof(D), size(D), "N")) do
         error("Ensemble size N is missing in FilteringCache.")
@@ -154,7 +157,7 @@ function _calc_PH_HPH!(c::FilteringCache, H::AbstractMatrix{T}, A::AbstractMatri
     HPH = get!(c.entries, (Matrix{T}, (D, d), "HPHt"), zeros(d, d))
     meas = get!(
         c.entries,
-        (Vector{T}, (d, ), "H-mul-X_i"),
+        (Vector{T}, (d,), "H-mul-X_i"),
         Vector{T}(undef, d),
     )
 
@@ -166,8 +169,8 @@ function _calc_PH_HPH!(c::FilteringCache, H::AbstractMatrix{T}, A::AbstractMatri
         mul!(PH, centered, meas', 1.0, 1.0)
         mul!(HPH, meas, meas', 1.0, 1.0)
     end
-    rdiv!(PH, (N-1.0))
-    rdiv!(HPH, (N-1.0))
+    rdiv!(PH, (N - 1.0))
+    rdiv!(HPH, (N - 1.0))
     return PH, HPH
 end
 

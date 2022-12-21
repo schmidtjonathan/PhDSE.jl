@@ -372,9 +372,8 @@ end
     end
 end
 
-
 @testset "Auxiliary ensemble functions: IIP vs. OOP" begin
-    m0, C0 = rand(100), diagm(0=>(2.0 .* randn(100)).^2)
+    m0, C0 = rand(100), diagm(0 => (2.0 .* randn(100)) .^ 2)
     init_dist = MvNormal(m0, C0)
     H = rand(50, 100)
     v = rand(50)
@@ -382,7 +381,7 @@ end
     ensemble = rand(init_dist, ENSEMBLE_SIZE)
 
     _m = similar(m0)
-    _m = ensemble_mean!(_m , ensemble)
+    _m = ensemble_mean!(_m, ensemble)
     @test _m ≈ ensemble_mean(ensemble)
 
     _ens = similar(ensemble)
@@ -399,7 +398,6 @@ end
     @test _m3 ≈ expec_m
     @test _C ≈ expec_C
     @test _ens2 ≈ centered_ensemble(ensemble)
-
 
     cache = FilteringCache()
     ensemble_size = size(ensemble, 2)
@@ -421,7 +419,6 @@ end
     @test oopPH ≈ iipPH
     @test oopHPH ≈ iipHPH
 end
-
 
 @testset "Standard EnKF (IIP) vs. O(d^3) OMF EnKF (IIP) vs. O(N^3) OMF EnKF (IIP)" begin
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
