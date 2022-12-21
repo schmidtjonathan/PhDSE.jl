@@ -629,65 +629,46 @@ end
 
 export denkf_correct
 
-# function eakf_correct(
-#     forecast_ensemble::AbstractMatrix{tT},
-#     H::AbstractMatrix{tT},
-#     measurement_noise_dist::MvNormal,
-#     y::AbstractVector{tT},
-#     v::Union{AbstractVector{tT},Missing} = missing,
-#     λ::tT = 1.0,
-# ) where {tT}
-#     # Anderson, 2001. "An Ensemble Adjustment Kalman Filter for Data Assimilation".
-#     # Appendix A.
-#     N = size(forecast_ensemble, 2)
-#     forecast_mean = ensemble_mean(forecast_ensemble)
-#     Z_f = forecast_ensemble .- forecast_mean
+function serial_etkf_correct(
+    forecast_ensemble::AbstractMatrix{T},
+    H::AbstractMatrix{T},
+    measurement_noise_dist::MvNormal,
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing,
+) where {T}
+    N = size(forecast_ensemble, 2)
+    if !isdiag(measurement_noise_dist.Σ)
+        error("Measurement cov must be diagonal for serial updates.")
+    end
 
-#     HX = H * forecast_ensemble
-#     if !ismissing(v)
-#         HX .+= v
-#     end
+    forecast_mean = ensemble_mean(forecast_ensemble)
+    Z_f = forecast_ensemble .- forecast_mean
+    analysis_mean = similar(forecast_mean)
+    Z_a = similar(Z_f)
 
-#     R_chol = cholesky(measurement_noise_dist.Σ)
-#     HX_mean = ensemble_mean(HX)
-#     HX = HX .- HX_mean
-#     Zy = (1.0 / sqrt(N-1)) * HX
-#     Zy_T_Rinv_sqrt = (Zy' / R_chol.U)
-#     U, D, F_T = svd(Zy_T_Rinv_sqrt, full=true, alg=LinearAlgebra.QRIteration())
-#     D[D .< eps(tT)] .= 0.0
-#     if length(D) < N
-#         D = vcat(D, zeros(N - length(D)))
-#     end
-#     B = Diagonal(1.0 ./ sqrt.(1.0 .+ D.^2))
+    @inbounds @simd for o in axes(H, 1)
+        Rₒ = measurement_noise_dist.Σ[o, o] # []
+        Hₒ = H[o:o, :]                   # [1, D]
+        scalar_obs = Hₒ * forecast_mean  # [1, ]
+        if !ismissing(v)
+            scalar_obs += v[o:o]         # [1, ]
+        end
+        scalar_residual = y[o:o] - scalar_obs   # [1, ]
 
-#     F, G, F_T2 = svd((1.0 / sqrt(N-1)) * Z_f', full=true, alg=LinearAlgebra.QRIteration())
+        Vₒ = (Hₒ * Z_f)'                #  [1, N]' = [N, 1]
+        Dₒ = (Vₒ'*Vₒ)[1] + (N - 1) * Rₒ               # []
+        βₒ = 1.0 / (1.0 + sqrt((N - 1) * Rₒ / Dₒ))  # []
+        K̃ₒ = Z_f * Vₒ / Dₒ            # [D, 1]
+        analysis_mean = forecast_mean + K̃ₒ * scalar_residual
+        Z_a = Z_f - βₒ * K̃ₒ * Vₒ'
 
-#     G[G .< eps(tT)] .= 0.0
-#     if any(G .== 0.0)
-#         error("Zero-singular values in Z_f decomposition.")
-#     end
-#     G_inv = 1.0 ./ G
+        forecast_mean = analysis_mean
+        Z_f = Z_a
+    end
 
-#     if length(G) < N
-#         G = vcat(G, zeros(N - length(G)))
-#         G_inv = vcat(G_inv, zeros(N - length(G_inv)))
-#     end
+    analysis_ensemble = analysis_mean .+ Z_a
 
-#     G = Diagonal(G)
-#     G_inv = Diagonal(G_inv)
+    return analysis_ensemble
+end
 
-#     T = U * B * U'
-#     A = F * G * T * G_inv * F'
-
-#     Z_a = (λ / sqrt(N - 1)) * Z_f * A'
-
-#     K = Z_a * T' * Zy'
-
-#     whitened_residual = R_chol \ (y - HX_mean)
-#     analysis_mean = forecast_mean .+ K * whitened_residual
-#     analysis_ensemble = analysis_mean .+ sqrt(N - 1) * Z_a
-
-#     return analysis_ensemble
-# end
-
-# export eakf_correct
+export serial_etkf_correct
