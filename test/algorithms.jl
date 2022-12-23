@@ -119,11 +119,11 @@ end
 
 stack(x) = copy(reduce(hcat, x)')
 
-function filtering_setup(D = 100, num_obs = 100)
-    Random.seed!(42)
+function filtering_setup(D = 100, num_obs = 10)
+    Random.seed!(142)
 
-    σ₀ = 0.001
-    σᵣ = 0.1
+    σ₀ = 0.0001
+    σᵣ = 3.0
 
     matern_derivs = 1
     totaldim = D * (matern_derivs + 1)
@@ -131,13 +131,12 @@ function filtering_setup(D = 100, num_obs = 100)
     μ₀ = zeros(totaldim)
     Σ₀ = diagm(0 => σ₀ .* ones(totaldim))
 
-    tspan = (0.0, 1.0)
-    dt = (tspan[2] - tspan[1]) / num_obs
-    lengthscale = 1.0
-    diffusion = 2.0
+    dt = 0.01
+    lengthscale = 0.05
+    diffusion = 20.0
     A, Q = _matern(D, matern_derivs, lengthscale, dt, diffusion)
 
-    H = projectionmatrix(D, matern_derivs, 0)
+    H = projectionmatrix(D, matern_derivs, 1)
     measdim, totaldim = size(H)
 
     R = diagm(0 => σᵣ .* ones(measdim))

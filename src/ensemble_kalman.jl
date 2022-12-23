@@ -239,8 +239,8 @@ function enkf_matrixfree_correct(
     HA::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{T};
+    R_inverse::AbstractMatrix{T},
     A::Union{AbstractMatrix{T},Missing} = missing,
-    R_inverse::Union{AbstractMatrix{T},Missing} = missing,
 ) where {T}
     D, N = size(forecast_ensemble)
     Nsub1 = N - 1.0
@@ -251,37 +251,28 @@ function enkf_matrixfree_correct(
         A = centered_ensemble(forecast_ensemble)
     end
 
-    compute_P_inverse = !ismissing(R_inverse)
-    if compute_P_inverse
-        # Implementation from the paper/preprint by Mandel; Section 4.2
-        # uses the Matrix inversion lemma to be optimal for d >> N
-        # -------------------------------------------------------------
-        # R⁻¹ (D - HX)
-        T1 = R_inverse * residual
-        # (HA)' R⁻¹(D - HX)
-        T2 = HA' * T1
-        # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
-        #  -> R⁻¹(HA) / (N-1)
-        QT1 = (R_inverse / Nsub1) * HA
-        #  -> (HA)'R⁻¹(HA) / (N-1)
-        QT2 = HA' * QT1
-        Q = Symmetric(I(N) + QT2, :L)
-        # Q⁻¹ (HA)' R⁻¹(D - HX)
-        T3 = Q \ T2
-        # (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
-        T4 = Nsub1 \ (HA * T3)
-        # (D - HX) - T4 (results from the identity matrix in [I - ...]; see Sec. 4.2
-        T5 = residual - T4
-        # P⁻¹(D - HX) = R⁻¹((D - HX) - ((1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)))
+    # Implementation from the paper/preprint by Mandel; Section 4.2
+    # uses the Matrix inversion lemma to be optimal for d >> N
+    # -------------------------------------------------------------
+    # R⁻¹ (D - HX)
+    T1 = R_inverse * residual
+    # (HA)' R⁻¹(D - HX)
+    T2 = HA' * T1
+    # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
+    #  -> R⁻¹(HA) / (N-1)
+    QT1 = (R_inverse / Nsub1) * HA
+    #  -> (HA)'R⁻¹(HA) / (N-1)
+    QT2 = HA' * QT1
+    Q = Symmetric(I(N) + QT2, :L)
+    # Q⁻¹ (HA)' R⁻¹(D - HX)
+    T3 = Q \ T2
+    # (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
+    T4 = Nsub1 \ (HA * T3)
+    # (D - HX) - T4 (results from the identity matrix in [I - ...]; see Sec. 4.2
+    T5 = residual - T4
+    # P⁻¹(D - HX) = R⁻¹((D - HX) - ((1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)))
 
-        P_inv_times_res = R_inverse * T5  # this is [d x d] * [d x N] -> [d x N]
-    else
-        # If N > d, use the standard approach instead, computing P,
-        # instead of P⁻¹
-        P = Symmetric(Nsub1 \ HA * HA' + measurement_noise_dist.Σ, :L)
-
-        P_inv_times_res = P \ residual  # this is [d x d] * [d x N] -> [d x N]
-    end
+    P_inv_times_res = R_inverse * T5  # this is [d x d] * [d x N] -> [d x N]
 
     # Now we insert P⁻¹(D - HX) into Eq. (2.2) ; see Sec. 2
     # (HA)' P⁻¹(D - HX)
@@ -468,7 +459,7 @@ function enkf_matrixfree_correct!(
     A::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{T};
-    R_inverse::Union{AbstractMatrix{T},Missing} = missing,
+    R_inverse::AbstractMatrix{T},
 ) where {T}
     d = size(HX, 1)
     D, N = size(A)
@@ -488,81 +479,64 @@ function enkf_matrixfree_correct!(
     residual .+= y
     residual .-= HX
 
-    compute_P_inverse = !ismissing(R_inverse)
-    if compute_P_inverse
-        # ALLOCATE / QUERY CACHES >>>
-        dxN_cache02 = get!(
-            c.entries, (typeof(residual), size(residual), "dxN_001"),
-            similar(residual),
-        )
-        dxN_cache03 = get!(
-            c.entries, (typeof(residual), size(residual), "dxN_002"),
-            similar(residual),
-        )
-        dxN_cache04 = get!(
-            c.entries, (typeof(residual), size(residual), "dxN_003"),
-            similar(residual),
-        )
-        NxN_cache01 = get!(
-            c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N),
-        )
-        NxN_cache02 = get!(
-            c.entries, (Matrix{T}, (N, N), "NxN_001"), Matrix{T}(undef, N, N),
-        )
-        # <<<
+    # ALLOCATE / QUERY CACHES >>>
+    dxN_cache02 = get!(
+        c.entries, (typeof(residual), size(residual), "dxN_001"),
+        similar(residual),
+    )
+    dxN_cache03 = get!(
+        c.entries, (typeof(residual), size(residual), "dxN_002"),
+        similar(residual),
+    )
+    dxN_cache04 = get!(
+        c.entries, (typeof(residual), size(residual), "dxN_003"),
+        similar(residual),
+    )
+    NxN_cache01 = get!(
+        c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N),
+    )
+    NxN_cache02 = get!(
+        c.entries, (Matrix{T}, (N, N), "NxN_001"), Matrix{T}(undef, N, N),
+    )
+    # <<<
 
-        # R⁻¹ (D - HX)
-        mul!(dxN_cache02, R_inverse, residual)
+    # R⁻¹ (D - HX)
+    mul!(dxN_cache02, R_inverse, residual)
 
-        # (HA)' R⁻¹(D - HX)
-        mul!(NxN_cache01, HA', dxN_cache02)
+    # (HA)' R⁻¹(D - HX)
+    mul!(NxN_cache01, HA', dxN_cache02)
 
-        # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
-        #  -> R⁻¹(HA) / (N-1)
-        rdiv!(mul!(dxN_cache03, R_inverse, HA), Nsub1)
-        #  -> (HA)'R⁻¹(HA) / (N-1)
-        mul!(NxN_cache02, HA', dxN_cache03) # That's Q without the added Identity matrix
-        #  -> I_N + (HA)'R⁻¹(HA) / (N-1)
-        @inbounds @simd for i in 1:N
-            NxN_cache02[i, i] += 1.0
-        end # So that's Q now
+    # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
+    #  -> R⁻¹(HA) / (N-1)
+    rdiv!(mul!(dxN_cache03, R_inverse, HA), Nsub1)
+    #  -> (HA)'R⁻¹(HA) / (N-1)
+    mul!(NxN_cache02, HA', dxN_cache03) # That's Q without the added Identity matrix
+    #  -> I_N + (HA)'R⁻¹(HA) / (N-1)
+    @inbounds @simd for i in 1:N
+        NxN_cache02[i, i] += 1.0
+    end # So that's Q now
 
-        # Q⁻¹ (HA)' R⁻¹(D - HX)   /GETS OVERWRITTEN\   /GETS OVERWRITTEN\
-        #                        |by cholesky!| | by ldiv!  |
-        ldiv!(cholesky!(Symmetric(NxN_cache02)), NxN_cache01)
+    # Q⁻¹ (HA)' R⁻¹(D - HX)   /GETS OVERWRITTEN\   /GETS OVERWRITTEN\
+    #                        |by cholesky!| | by ldiv!  |
+    ldiv!(cholesky!(Symmetric(NxN_cache02)), NxN_cache01)
 
-        # K := (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
-        rdiv!(mul!(dxN_cache02, HA, NxN_cache01), Nsub1)
+    # K := (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
+    rdiv!(mul!(dxN_cache02, HA, NxN_cache01), Nsub1)
 
-        # (D - HX) - K
-        # copy!(dxN_cache01, residual)
-        residual .-= dxN_cache02
+    # (D - HX) - K
+    # copy!(dxN_cache01, residual)
+    residual .-= dxN_cache02
 
-        # R⁻¹((D - HX) - K) = P⁻¹(D - HX)
-        mul!(dxN_cache04, R_inverse, residual)
+    # R⁻¹((D - HX) - K) = P⁻¹(D - HX)
+    mul!(dxN_cache04, R_inverse, residual)
 
-        # (HA)' R⁻¹((D - HX) - K)
-        mul!(NxN_cache02, HA', dxN_cache04)
+    # (HA)' R⁻¹((D - HX) - K)
+    mul!(NxN_cache02, HA', dxN_cache04)
 
-        # Xᵃ = Xᶠ + A / (N-1) (HA)' R⁻¹((D - HX) - K)
-        copy!(ensemble, forecast_ensemble)
-        mul!(ensemble, rdiv!(A, Nsub1), NxN_cache02, 1.0, 1.0)
-        return ensemble
-    else
-        # ALLOCATE / QUERY CACHES >>>
-        P = get!(c.entries, (Matrix{T}, (d, d), "P"), Matrix{T}(undef, d, d))
-        P_inv_times_res =
-            get!(c.entries, (Matrix{T}, (d, N), "Pinv_times_res"), Matrix{T}(undef, d, N))
-        NxN_cache = get!(c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N))
-        # <<<
-        ldiv!(Nsub1, mul!(P, HA, HA'))
-        P .+= measurement_noise_dist.Σ
-        ldiv!(P_inv_times_res, cholesky!(Symmetric(P)), residual)
-        mul!(NxN_cache, HA', P_inv_times_res)
-        copy!(ensemble, forecast_ensemble)
-        mul!(ensemble, ldiv!(Nsub1, A), NxN_cache, 1.0, 1.0)
-        return ensemble
-    end
+    # Xᵃ = Xᶠ + A / (N-1) (HA)' R⁻¹((D - HX) - K)
+    copy!(ensemble, forecast_ensemble)
+    mul!(ensemble, rdiv!(A, Nsub1), NxN_cache02, 1.0, 1.0)
+    return ensemble
 end
 
 export enkf_predict!
