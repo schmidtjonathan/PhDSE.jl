@@ -122,26 +122,19 @@ end
 # >>>
 # Houtekamer, Mitchell, 1998. "Data Assimilation Using an Ensemble Kalman Filter Technique".
 # Eqs. (13) - (15)
-function _sum_terms(ens_member, ens_mean, H)
-    centered = ens_member - ens_mean
-    meas = H * centered
-    PH_term = centered * meas'
-    HPH_term = meas * meas'
-    return PH_term, HPH_term
-end
-
 function _calc_PH_HPH(ensemble, H)
     D, N = size(ensemble)
     d = size(H, 1)
-    ens_mean = ensemble_mean(ensemble)
+    A = centered_ensemble(ensemble)
     PH = zeros(D, d)
     HPH = zeros(d, d)
     @inbounds @simd for i in 1:N
-        PH_term, HPH_term = _sum_terms(ensemble[:, i], ens_mean, H)
-        PH .+= PH_term
-        HPH .+= HPH_term
+        x_i = A[:, i]
+        meas = H * x_i
+        PH .+= x_i * meas'
+        HPH .+= meas * meas'
     end
-    return PH / (N - 1), HPH / (N - 1)
+    return PH / (N - 1.0), HPH / (N - 1.0)
 end
 
 function _calc_PH_HPH!(
@@ -403,7 +396,6 @@ function enkf_correct!(
     N = get(c.entries, (typeof(D), size(D), "N")) do
         error("Ensemble size N is missing in FilteringCache.")
     end
-    Nsub1 = N - 1.0
     forecast_ensemble = get(c.entries, (Matrix{T}, (D, N), "forecast_ensemble")) do
         error("Cannot correct, no forecast ensemble in cache.")
     end
@@ -423,7 +415,7 @@ function enkf_correct!(
 
     PH, HPH = _calc_PH_HPH!(c, H, A)
     HPH .+= measurement_noise_dist.Σ
-    rdiv!(PH, cholesky!(Symmetric(HPH, :L)))
+    rdiv!(PH, cholesky!(Symmetric(HPH)))
     copy!(ensemble, forecast_ensemble)
     mul!(ensemble, PH, residual, 1.0, 1.0)
     return ensemble

@@ -1,4 +1,4 @@
-const ENSEMBLE_SIZE = 1000
+const ENSEMBLE_SIZE = 500
 
 @testset "Kalman filter (OOP) vs. standard EnKF (OOP)" begin
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
@@ -268,10 +268,10 @@ end
 end
 
 @testset "Auxiliary ensemble functions: IIP vs. OOP" begin
-    m0, C0 = rand(100), diagm(0 => (2.0 .* randn(100)) .^ 2)
+    m0, C0 = randn(100), diagm(0 => (2.0 .* randn(100)) .^ 2)
     init_dist = MvNormal(m0, C0)
-    H = rand(50, 100)
-    v = rand(50)
+    H = randn(50, 100)
+    v = randn(50)
 
     ensemble = rand(init_dist, ENSEMBLE_SIZE)
 
