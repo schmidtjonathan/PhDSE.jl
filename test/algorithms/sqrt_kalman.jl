@@ -71,14 +71,14 @@
     oop_stds = stack([2sqrt.(diag(C)) for (m, C) in oop_traj])
 
     @test isapprox(
-        kf_means[end], iip_means[end]; atol = 0.1, rtol = 0.1
+        kf_means[end], iip_means[end]; atol = 0.1, rtol = 0.1,
     ) && isapprox(
-        iip_means[end], oop_means[end]; atol = 0.1, rtol = 0.1
+        iip_means[end], oop_means[end]; atol = 0.1, rtol = 0.1,
     )
     @test isapprox(
-        kf_stds[end], iip_stds[end]; atol = 0.1, rtol = 0.1
+        kf_stds[end], iip_stds[end]; atol = 0.1, rtol = 0.1,
     ) && isapprox(
-        iip_stds[end], oop_stds[end]; atol = 0.1, rtol = 0.1
+        iip_stds[end], oop_stds[end]; atol = 0.1, rtol = 0.1,
     )
 
     if PLOT_RESULTS

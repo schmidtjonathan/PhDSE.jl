@@ -71,7 +71,6 @@ const ENSEMBLE_SIZE = 1000
     end
 end
 
-
 @testset "O(d^3) EnKF (OOP) vs. O(N^3) OMF EnKF (OOP)" begin
     μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup()
     init_dist = MvNormal(μ₀, Σ₀)
@@ -136,7 +135,6 @@ end
     enkf_stds = stack([2sqrt.(diag(C)) for (m, C) in enkf_traj])
     @test isapprox(mil_means[end], enkf_means[end]; atol = 0.1, rtol = 0.1)
     @test isapprox(mil_stds[end], enkf_stds[end]; atol = 0.1, rtol = 0.1)
-
 
     if PLOT_RESULTS
         out_dir = mkpath("./out/d3EnKF_oop-vs-N3OMFEnKF_oop")
@@ -245,7 +243,6 @@ end
     @test isapprox(oop_stds[end], iip_stds[end]; atol = 0.1, rtol = 0.1)
 
     if PLOT_RESULTS
-
         out_dir = mkpath("./out/standardEnKF_oop-vs-standardEnKF_iip")
         savefig(
             plot_test(
