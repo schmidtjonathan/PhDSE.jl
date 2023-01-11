@@ -14,7 +14,7 @@ gr()
 stack(x) = copy(reduce(hcat, x)')
 const OUT_DIR = mkpath("./out/")
 
-const ENSEMBLE_SIZE = 100
+const ENSEMBLE_SIZE = 15
 
 function plot_test(
     gt,
@@ -76,7 +76,9 @@ function plot_test(
     return gpl
 end
 
-function filtering_setup_lorenz()
+function filtering_setup_lorenz(dim_state=40)
+    Random.seed!(142)
+
     function lorenz96(u, p, t)
         du = similar(u)
         N = length(u)
@@ -92,12 +94,12 @@ function filtering_setup_lorenz()
         return du
     end
 
-    dim_state = 40
-    dim_obs = dim_state ÷ 2
+    dim_obs = dim_state #÷ 2
     initial_state_std = 1.0
     state_noise_std = 0.5
     observation_noise_std = 1.0
     force = 8.0
+    θ = [force]
 
     tspan = (0.0, 5.0)
     num_data_points = 200
@@ -109,17 +111,20 @@ function filtering_setup_lorenz()
     # u₀[1] += 0.01
     u₀ .+= 3 .* rand(size(u₀)...)
     Σ₀ = Matrix{Float64}(initial_state_std^2 * I(dim_state))
-    A(x) = I + Δt * ForwardDiff.jacobian(u -> lorenz96(u, [force], 0.0), x)
-    Q(x) = Matrix{Float64}(state_noise_std^2 * I(dim_state))
-    u(x) = (x + Δt * lorenz96(x, [force], 0.0)) - A(x) * x
-    H(x) = Matrix{Float64}(I(dim_state))[1:2:end, :]
-    R(x) = Matrix{Float64}(observation_noise_std^2 * I(dim_obs))
-    v(x) = zeros(dim_obs)
+    function solve_lorenz_step(x, t)
+        partial_prob = ODEProblem(lorenz96, x, (t, t + Δt), θ)
+        fin = Array(solve(partial_prob, AutoTsit5(Rosenbrock23()); reltol=1e-10, abstol=1e-10, save_everystep=false, save_start = false))
+        return vec(fin)
+    end
 
-    @assert size(H(μ₀)) == (dim_obs, dim_state)
-    y₀ = H(μ₀) * μ₀
+    A(x, t) = ForwardDiff.jacobian(u -> solve_lorenz_step(u, t), x)
+    Q = Matrix{Float64}(state_noise_std^2 * I(dim_state))
+    u(x, t) = solve_lorenz_step(x, t) - A(x, t) * x
+    H = Matrix{Float64}(I(dim_state))#[1:2:end, :]
+    R = Matrix{Float64}(observation_noise_std^2 * I(dim_obs))
+    v = zeros(dim_obs)
 
-    θ = [force]
+    # @assert size(H) == (dim_obs, dim_state)
 
     ground_truth = Array(
         solve(
@@ -129,32 +134,34 @@ function filtering_setup_lorenz()
         ),
     )
     observations =
-        H(μ₀) * ground_truth .+ rand(
-            MvNormal(zeros(dim_obs), R(y₀)), size(ground_truth, 2),
+        H * ground_truth .+ rand(
+            MvNormal(zeros(dim_obs), R), size(ground_truth, 2),
         )
 
     observations = observations'
     ground_truth = ground_truth'
+    times = collect(tspan[1]:Δt:tspan[2])
 
     # @show size(observations) size(ground_truth) typeof(observations) typeof(ground_truth)
     @assert size(ground_truth, 2) == dim_state
     @assert size(observations, 2) == dim_obs
-    @assert size(ground_truth, 1) == size(observations, 1)
+    @assert size(ground_truth, 1) == size(observations, 1) == length(times)
 
-    return μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations
+    return μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations, times
 end
 
-μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations = filtering_setup_lorenz()
-savefig(plot_test(ground_truth, observations, H(μ₀)), joinpath(OUT_DIR, "setup.png"))
+
+μ₀, Σ₀, A, Q, u, H, R, v, ground_truth, observations, times = filtering_setup_lorenz()
+savefig(plot_test(ground_truth, observations, H), joinpath(OUT_DIR, "setup.png"))
+
 
 function lorenz_kf()
     kf_m = copy(μ₀)
     kf_C = copy(Σ₀)
     kf_traj = [(copy(μ₀), copy(Σ₀))]
-    for y in [observations[i, :] for i in axes(observations, 1)]
-        kf_m, kf_C = kf_predict(kf_m, kf_C, A(kf_m), Q(kf_m), u(kf_m))
-
-        kf_m, kf_C = kf_correct(kf_m, kf_C, H(kf_m), R(y), y, v(y))
+    for (t, y) in zip(times, [observations[i, :] for i in axes(observations, 1)])
+        kf_m, kf_C = kf_predict(kf_m, kf_C, A(kf_m, t), Q, u(kf_m, t))
+        kf_m, kf_C = kf_correct(kf_m, kf_C, H, R, y, v)
         push!(kf_traj, (copy(kf_m), copy(kf_C)))
     end
 
@@ -164,7 +171,7 @@ function lorenz_kf()
     res_plot = plot_test(
         ground_truth,
         observations,
-        H(kf_means[1]);
+        H;
         estim_means = kf_means,
         estim_stds = kf_stds,
     )
@@ -175,19 +182,19 @@ end
 
 function lorenz_enkf()
     init_dist = MvNormal(μ₀, Σ₀)
-    process_noise_dist(x) = MvNormal(zero(x), Q(x))
-    measurement_noise_dist(x) = MvNormal(zero(x), R(x))
+    process_noise_dist = MvNormal(zero(μ₀), Q)
+    measurement_noise_dist = MvNormal(zero(observations[1, :]), R)
     ensemble = rand(init_dist, ENSEMBLE_SIZE)
 
     kf_m = copy(μ₀)
     kf_C = copy(Σ₀)
     kf_traj = [(copy(μ₀), copy(Σ₀))]
-    for y in [observations[i, :] for i in axes(observations, 1)]
-        ensemble = enkf_predict(ensemble, A(kf_m), process_noise_dist(kf_m), u(kf_m))
+    for (t, y) in zip(times, [observations[i, :] for i in axes(observations, 1)])
+        ensemble = enkf_predict(ensemble, A(kf_m, t), process_noise_dist, u(kf_m, t))
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
 
-        ensemble = enkf_correct(ensemble, H(kf_m), measurement_noise_dist(y), y, v(y))
+        ensemble = enkf_correct(ensemble, H, measurement_noise_dist, y, v)
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
         push!(kf_traj, (copy(kf_m), copy(kf_C)))
@@ -199,7 +206,7 @@ function lorenz_enkf()
     res_plot = plot_test(
         ground_truth,
         observations,
-        H(kf_means[1]);
+        H;
         estim_means = kf_means,
         estim_stds = kf_stds,
     )
@@ -208,21 +215,22 @@ function lorenz_enkf()
     return res_plot
 end
 
-function lorenz_etkf()
+
+function lorenz_denkf()
     init_dist = MvNormal(μ₀, Σ₀)
-    process_noise_dist(x) = MvNormal(zero(x), Q(x))
-    measurement_noise_dist(x) = MvNormal(zero(x), R(x))
+    process_noise_dist = MvNormal(zero(μ₀), Q)
+    measurement_noise_dist = MvNormal(zero(observations[1, :]), R)
     ensemble = rand(init_dist, ENSEMBLE_SIZE)
 
     kf_m = copy(μ₀)
     kf_C = copy(Σ₀)
     kf_traj = [(copy(μ₀), copy(Σ₀))]
-    for y in [observations[i, :] for i in axes(observations, 1)]
-        ensemble = enkf_predict(ensemble, A(kf_m), process_noise_dist(kf_m), u(kf_m))
+    for (t, y) in zip(times, [observations[i, :] for i in axes(observations, 1)])
+        ensemble = enkf_predict(ensemble, A(kf_m, t), process_noise_dist, u(kf_m, t))
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
 
-        ensemble = etkf_correct(ensemble, H(kf_m), measurement_noise_dist(y), y, v(y))
+        ensemble = denkf_correct(ensemble, H, measurement_noise_dist, y, v)
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
         push!(kf_traj, (copy(kf_m), copy(kf_C)))
@@ -234,7 +242,43 @@ function lorenz_etkf()
     res_plot = plot_test(
         ground_truth,
         observations,
-        H(kf_means[1]);
+        H;
+        estim_means = kf_means,
+        estim_stds = kf_stds,
+    )
+
+    savefig(res_plot, joinpath(OUT_DIR, "denkf.png"))
+    return res_plot
+end
+
+
+function lorenz_etkf()
+    init_dist = MvNormal(μ₀, Σ₀)
+    process_noise_dist = MvNormal(zero(μ₀), Q)
+    measurement_noise_dist = MvNormal(zero(observations[1, :]), R)
+    ensemble = rand(init_dist, ENSEMBLE_SIZE)
+
+    kf_m = copy(μ₀)
+    kf_C = copy(Σ₀)
+    kf_traj = [(copy(μ₀), copy(Σ₀))]
+    for (t, y) in zip(times, [observations[i, :] for i in axes(observations, 1)])
+        ensemble = enkf_predict(ensemble, A(kf_m, t), process_noise_dist, u(kf_m, t))
+
+        kf_m, kf_C = ensemble_mean_cov(ensemble)
+
+        ensemble = etkf_correct(ensemble, H, measurement_noise_dist, y, v)
+
+        kf_m, kf_C = ensemble_mean_cov(ensemble)
+        push!(kf_traj, (copy(kf_m), copy(kf_C)))
+    end
+
+    kf_means = stack([m for (m, C) in kf_traj[2:end]])
+    kf_stds = stack([2sqrt.(diag(C)) for (m, C) in kf_traj[2:end]])
+
+    res_plot = plot_test(
+        ground_truth,
+        observations,
+        H;
         estim_means = kf_means,
         estim_stds = kf_stds,
     )
@@ -245,20 +289,20 @@ end
 
 function lorenz_serial_etkf()
     init_dist = MvNormal(μ₀, Σ₀)
-    process_noise_dist(x) = MvNormal(zero(x), Q(x))
-    measurement_noise_dist(x) = MvNormal(zero(x), R(x))
+    process_noise_dist = MvNormal(zero(μ₀), Q)
+    measurement_noise_dist = MvNormal(zero(observations[1, :]), R)
     ensemble = rand(init_dist, ENSEMBLE_SIZE)
 
     kf_m = copy(μ₀)
     kf_C = copy(Σ₀)
     kf_traj = [(copy(μ₀), copy(Σ₀))]
-    for y in [observations[i, :] for i in axes(observations, 1)]
-        ensemble = enkf_predict(ensemble, A(kf_m), process_noise_dist(kf_m), u(kf_m))
+    for (t, y) in zip(times, [observations[i, :] for i in axes(observations, 1)])
+        ensemble = enkf_predict(ensemble, A(kf_m, t), process_noise_dist, u(kf_m, t))
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
 
         ensemble =
-            serial_etkf_correct(ensemble, H(kf_m), measurement_noise_dist(y), y, v(y))
+            serial_etkf_correct(ensemble, H, measurement_noise_dist, y, v)
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
         push!(kf_traj, (copy(kf_m), copy(kf_C)))
@@ -270,7 +314,7 @@ function lorenz_serial_etkf()
     res_plot = plot_test(
         ground_truth,
         observations,
-        H(kf_means[1]);
+        H;
         estim_means = kf_means,
         estim_stds = kf_stds,
     )
@@ -279,45 +323,13 @@ function lorenz_serial_etkf()
     return res_plot
 end
 
-# function lorenz_eakf()
-#     init_dist = MvNormal(μ₀, Σ₀)
-#     process_noise_dist(x) = MvNormal(zero(x), Q(x))
-#     measurement_noise_dist(x) = MvNormal(zero(x), R(x))
-#     ensemble = rand(init_dist, ENSEMBLE_SIZE)
-
-#     kf_m = copy(μ₀)
-#     kf_C = copy(Σ₀)
-#     kf_traj = [(copy(μ₀), copy(Σ₀))]
-#     for y in [observations[i, :] for i in axes(observations, 1)]
-#         ensemble = enkf_predict(ensemble, A(kf_m), process_noise_dist(kf_m), u(kf_m))
-
-#         kf_m, kf_C = ensemble_mean_cov(ensemble)
-
-#         ensemble = eakf_correct(ensemble, H(kf_m), measurement_noise_dist(y), y, v(y))
-
-#         kf_m, kf_C = ensemble_mean_cov(ensemble)
-#         push!(kf_traj, (copy(kf_m), copy(kf_C)))
-#     end
-
-#     kf_means = stack([m for (m, C) in kf_traj[2:end]])
-#     kf_stds = stack([2sqrt.(diag(C)) for (m, C) in kf_traj[2:end]])
-
-#     res_plot = plot_test(
-#         ground_truth,
-#         observations,
-#         H(kf_means[1]);
-#         estim_means = kf_means,
-#         estim_stds = kf_stds,
-#     )
-
-#     savefig(res_plot, joinpath(OUT_DIR, "eakf.png"))
-#     return res_plot
-# end
 
 @info "Kalman filter"
 kf_plot = lorenz_kf()
 @info "Ensemble Kalman filter with N = $ENSEMBLE_SIZE"
 enkf_plot = lorenz_enkf()
+@info "Deterministic Ensemble Kalman filter with N = $ENSEMBLE_SIZE"
+denkf_plot = lorenz_denkf()
 @info "Ensemble Transform Kalman filter with N = $ENSEMBLE_SIZE"
 etkf_plot = lorenz_etkf()
 @info "Serial Ensemble Transform Kalman filter with N = $ENSEMBLE_SIZE"
