@@ -14,7 +14,7 @@ gr()
 stack(x) = copy(reduce(hcat, x)')
 const OUT_DIR = mkpath("./out/")
 
-const ENSEMBLE_SIZE = 15
+ENSEMBLE_SIZE = 5
 
 function plot_test(
     gt,
@@ -194,7 +194,7 @@ function lorenz_enkf()
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
 
-        ensemble = enkf_correct(ensemble, H, measurement_noise_dist, y, v)
+        ensemble = enkf_correct(ensemble, H, measurement_noise_dist, y, v; λ=1.06)
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
         push!(kf_traj, (copy(kf_m), copy(kf_C)))
@@ -230,7 +230,7 @@ function lorenz_denkf()
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
 
-        ensemble = denkf_correct(ensemble, H, measurement_noise_dist, y, v)
+        ensemble = denkf_correct(ensemble, H, measurement_noise_dist, y, v, λ=1.06)
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
         push!(kf_traj, (copy(kf_m), copy(kf_C)))
@@ -266,7 +266,7 @@ function lorenz_etkf()
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
 
-        ensemble = etkf_correct(ensemble, H, measurement_noise_dist, y, v)
+        ensemble = etkf_correct(ensemble, H, measurement_noise_dist, y, v; λ=1.06)
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
         push!(kf_traj, (copy(kf_m), copy(kf_C)))
@@ -302,7 +302,7 @@ function lorenz_serial_etkf()
         kf_m, kf_C = ensemble_mean_cov(ensemble)
 
         ensemble =
-            serial_etkf_correct(ensemble, H, measurement_noise_dist, y, v)
+            serial_etkf_correct(ensemble, H, measurement_noise_dist, y, v; λ=1.06)
 
         kf_m, kf_C = ensemble_mean_cov(ensemble)
         push!(kf_traj, (copy(kf_m), copy(kf_C)))
