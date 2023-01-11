@@ -544,24 +544,24 @@ function etkf_correct(
     λ::tT = 1.0,
 ) where {tT}
     N = size(forecast_ensemble, 2)
+    R_chol = cholesky(measurement_noise_dist.Σ)
+    H̃ = R_chol.L \ H
 
-    HX = H * forecast_ensemble
+    HX = H̃ * forecast_ensemble
     if !ismissing(v)
-        HX .+= v
+        HX .+= R_chol.L \ v
     end
 
-    R_chol = cholesky(measurement_noise_dist.Σ)
     HX_mean = ensemble_mean(HX)
     HX = HX .- HX_mean
     Zy = (1.0 / sqrt(N - 1)) * HX
-    Zy_T_Rinv_sqrt = (Zy' / R_chol.U)
-    C, G, F_T = svd(Zy_T_Rinv_sqrt, full = true, alg = LinearAlgebra.QRIteration())
-    G[G.<eps(tT)] .= 0.0
+    C, G, F_T = svd(Zy', full = true, alg = LinearAlgebra.QRIteration())
+    G[G.<eps(tT)] .= eps(tT)
     if length(G) < N
         G = vcat(G, zeros(N - length(G)))
     end
     G = Diagonal(1.0 ./ sqrt.(1.0 .+ G .^ 2))
-    T = C * G * C'
+    T = C * G
 
     forecast_mean = ensemble_mean(forecast_ensemble)
     Z_f = forecast_ensemble .- forecast_mean
@@ -569,7 +569,7 @@ function etkf_correct(
 
     K = Z_a * T' * Zy'
 
-    whitened_residual = R_chol \ (y - HX_mean)
+    whitened_residual = (R_chol.L \ y - HX_mean)
     analysis_mean = forecast_mean .+ K * whitened_residual
     analysis_ensemble = analysis_mean .+ sqrt(N - 1) * Z_a
 
