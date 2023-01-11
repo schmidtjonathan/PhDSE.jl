@@ -122,26 +122,49 @@ end
 # >>>
 # Houtekamer, Mitchell, 1998. "Data Assimilation Using an Ensemble Kalman Filter Technique".
 # Eqs. (13) - (15)
-function _sum_terms(ens_member, ens_mean, H)
-    centered = ens_member - ens_mean
-    meas = H * centered
-    PH_term = centered * meas'
-    HPH_term = meas * meas'
-    return PH_term, HPH_term
-end
-
 function _calc_PH_HPH(ensemble, H)
     D, N = size(ensemble)
     d = size(H, 1)
-    ens_mean = ensemble_mean(ensemble)
+    A = centered_ensemble(ensemble)
     PH = zeros(D, d)
     HPH = zeros(d, d)
     @inbounds @simd for i in 1:N
-        PH_term, HPH_term = _sum_terms(ensemble[:, i], ens_mean, H)
-        PH .+= PH_term
-        HPH .+= HPH_term
+        x_i = A[:, i]
+        meas = H * x_i
+        PH .+= x_i * meas'
+        HPH .+= meas * meas'
     end
-    return PH / (N - 1), HPH / (N - 1)
+    return PH / (N - 1.0), HPH / (N - 1.0)
+end
+
+function _calc_PH_HPH!(
+    c::FilteringCache,
+    H::AbstractMatrix{T},
+    A::AbstractMatrix{T},
+) where {T}
+    d, D = size(H)
+    N = get(c.entries, (typeof(D), size(D), "N")) do
+        error("Ensemble size N is missing in FilteringCache.")
+    end
+    PH = get!(c.entries, (Matrix{T}, (D, d), "PHt"), zeros(D, d))
+    HPH = get!(c.entries, (Matrix{T}, (D, d), "HPHt"), zeros(d, d))
+    meas = get!(
+        c.entries,
+        (Vector{T}, (d,), "H-mul-X_i"),
+        Vector{T}(undef, d),
+    )
+
+    PH .= 0.0
+    HPH .= 0.0
+    @inbounds @simd for i in 1:N
+        centered = view(A, 1:D, i)
+        mul!(meas, H, centered)
+        mul!(PH, centered, meas', 1.0, 1.0)
+        mul!(HPH, meas, meas', 1.0, 1.0)
+    end
+    rdiv!(PH, (N - 1.0))
+    rdiv!(HPH, (N - 1.0))
+    return PH, HPH
 end
 
 # <<<
@@ -166,7 +189,8 @@ function enkf_correct(
     H::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{T},
-    v::Union{AbstractVector{T},Missing} = missing,
+    v::Union{AbstractVector{T},Missing} = missing;
+    λ::T = 1.0
 ) where {T}
     N = size(forecast_ensemble, 2)
     HX = H * forecast_ensemble
@@ -180,6 +204,8 @@ function enkf_correct(
     Ŝ = HPH + measurement_noise_dist.Σ
     K̂ = PH / cholesky!(Symmetric(Ŝ))
     ensemble = forecast_ensemble + K̂ * residual
+    mn = ensemble_mean(ensemble)
+    ensemble = mn .+ sqrt(λ) * (ensemble .- mn)
     return ensemble
 end
 
@@ -209,11 +235,11 @@ function enkf_matrixfree_correct(
     HA::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{T};
+    R_inverse::AbstractMatrix{T},
     A::Union{AbstractMatrix{T},Missing} = missing,
-    R_inverse::Union{AbstractMatrix{T},Missing} = missing,
 ) where {T}
     D, N = size(forecast_ensemble)
-    Nsub1 = N - 1
+    Nsub1 = N - 1.0
     d = length(y)
     data_plus_noise = rand(measurement_noise_dist, N) .+ y
     residual = data_plus_noise - HX
@@ -221,37 +247,28 @@ function enkf_matrixfree_correct(
         A = centered_ensemble(forecast_ensemble)
     end
 
-    compute_P_inverse = !ismissing(R_inverse)
-    if compute_P_inverse
-        # Implementation from the paper/preprint by Mandel; Section 4.2
-        # uses the Matrix inversion lemma to be optimal for d >> N
-        # -------------------------------------------------------------
-        # R⁻¹ (D - HX)
-        T1 = R_inverse * residual
-        # (HA)' R⁻¹(D - HX)
-        T2 = HA' * T1
-        # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
-        #  -> R⁻¹(HA) / (N-1)
-        QT1 = (R_inverse / Nsub1) * HA
-        #  -> (HA)'R⁻¹(HA) / (N-1)
-        QT2 = HA' * QT1
-        Q = Symmetric(I(N) + QT2, :L)
-        # Q⁻¹ (HA)' R⁻¹(D - HX)
-        T3 = Q \ T2
-        # (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
-        T4 = Nsub1 \ (HA * T3)
-        # (D - HX) - T4 (results from the identity matrix in [I - ...]; see Sec. 4.2
-        T5 = residual - T4
-        # P⁻¹(D - HX) = R⁻¹((D - HX) - ((1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)))
+    # Implementation from the paper/preprint by Mandel; Section 4.2
+    # uses the Matrix inversion lemma to be optimal for d >> N
+    # -------------------------------------------------------------
+    # R⁻¹ (D - HX)
+    T1 = R_inverse * residual
+    # (HA)' R⁻¹(D - HX)
+    T2 = HA' * T1
+    # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
+    #  -> R⁻¹(HA) / (N-1)
+    QT1 = (R_inverse / Nsub1) * HA
+    #  -> (HA)'R⁻¹(HA) / (N-1)
+    QT2 = HA' * QT1
+    Q = Symmetric(I(N) + QT2, :L)
+    # Q⁻¹ (HA)' R⁻¹(D - HX)
+    T3 = Q \ T2
+    # (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
+    T4 = Nsub1 \ (HA * T3)
+    # (D - HX) - T4 (results from the identity matrix in [I - ...]; see Sec. 4.2
+    T5 = residual - T4
+    # P⁻¹(D - HX) = R⁻¹((D - HX) - ((1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)))
 
-        P_inv_times_res = R_inverse * T5  # this is [d x d] * [d x N] -> [d x N]
-    else
-        # If N > d, use the standard approach instead, computing P,
-        # instead of P⁻¹
-        P = Symmetric(Nsub1 \ HA * HA' + measurement_noise_dist.Σ, :L)
-
-        P_inv_times_res = P \ residual  # this is [d x d] * [d x N] -> [d x N]
-    end
+    P_inv_times_res = R_inverse * T5  # this is [d x d] * [d x N] -> [d x N]
 
     # Now we insert P⁻¹(D - HX) into Eq. (2.2) ; see Sec. 2
     # (HA)' P⁻¹(D - HX)
@@ -349,13 +366,10 @@ function A_HX_HA!(
     )
     centered_ensemble!(A, ens_mean, forecast_ensemble)
 
-    measured_ens_mean =
-        get!(
-            c.entries,
-            (Vector{T}, (d,), "measured_forecast_ensemble_mean"),
-            Vector{T}(undef, d),
-        )
-    centered_ensemble!(HA, measured_ens_mean, HX)
+    mul!(HA, H, A)
+    if !ismissing(v)
+        HA .+= v
+    end
     return A, HX, HA
 end
 
@@ -385,7 +399,6 @@ function enkf_correct!(
     N = get(c.entries, (typeof(D), size(D), "N")) do
         error("Ensemble size N is missing in FilteringCache.")
     end
-    Nsub1 = N - 1
     forecast_ensemble = get(c.entries, (Matrix{T}, (D, N), "forecast_ensemble")) do
         error("Cannot correct, no forecast ensemble in cache.")
     end
@@ -396,10 +409,6 @@ function enkf_correct!(
     )
 
     A, HX, HA = A_HX_HA!(c, H, v)
-    # TODO: turn these into tests >>>>>>>>>>>>>>>>>>>>>>>>>v
-    @assert A ≈ centered_ensemble(forecast_ensemble)
-    @assert HX ≈ H * forecast_ensemble
-    @assert HA ≈ H * A
 
     # D - HX = ([y + v_i]_i=1:N) - HX , with v_i ~ N(0, R)
     residual = get!(c.entries, (typeof(HX), size(HX), "residual"), similar(HX))
@@ -407,17 +416,11 @@ function enkf_correct!(
     residual .+= y
     residual .-= HX
 
-    Σ̂ = get!(c.entries, (Matrix{T}, (D, D), "Σ̂"), Matrix{T}(undef, D, D))
-    rdiv!(mul!(Σ̂, A, A'), Nsub1)
-    cross_cov = get!(c.entries, (Matrix{T}, (D, d), "cross_cov"), Matrix{T}(undef, D, d))
-    mul!(cross_cov, Symmetric(Σ̂), H')
-    Ŝ = get!(c.entries, (Matrix{T}, (d, d), "Ŝ"), Matrix{T}(undef, d, d))
-    mul!(Ŝ, H, cross_cov)
-    Ŝ .+= measurement_noise_dist.Σ
-    K̂ = cross_cov
-    rdiv!(K̂, cholesky!(Symmetric(Ŝ, :L)))
+    PH, HPH = _calc_PH_HPH!(c, H, A)
+    HPH .+= measurement_noise_dist.Σ
+    rdiv!(PH, cholesky!(Symmetric(HPH)))
     copy!(ensemble, forecast_ensemble)
-    mul!(ensemble, K̂, residual, 1.0, 1.0)
+    mul!(ensemble, PH, residual, 1.0, 1.0)
     return ensemble
 end
 
@@ -451,11 +454,11 @@ function enkf_matrixfree_correct!(
     A::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{T};
-    R_inverse::Union{AbstractMatrix{T},Missing} = missing,
+    R_inverse::AbstractMatrix{T},
 ) where {T}
     d = size(HX, 1)
     D, N = size(A)
-    Nsub1 = N - 1
+    Nsub1 = N - 1.0
     forecast_ensemble = get(c.entries, (Matrix{T}, (D, N), "forecast_ensemble")) do
         error("Cannot correct, no forecast ensemble in cache.")
     end
@@ -471,83 +474,189 @@ function enkf_matrixfree_correct!(
     residual .+= y
     residual .-= HX
 
-    compute_P_inverse = !ismissing(R_inverse)
-    if compute_P_inverse
-        # ALLOCATE / QUERY CACHES >>>
-        dxN_cache02 = get!(
-            c.entries, (typeof(residual), size(residual), "dxN_001"),
-            similar(residual),
-        )
-        dxN_cache03 = get!(
-            c.entries, (typeof(residual), size(residual), "dxN_002"),
-            similar(residual),
-        )
-        dxN_cache04 = get!(
-            c.entries, (typeof(residual), size(residual), "dxN_003"),
-            similar(residual),
-        )
-        NxN_cache01 = get!(
-            c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N),
-        )
-        NxN_cache02 = get!(
-            c.entries, (Matrix{T}, (N, N), "NxN_001"), Matrix{T}(undef, N, N),
-        )
-        # <<<
+    # ALLOCATE / QUERY CACHES >>>
+    dxN_cache02 = get!(
+        c.entries, (typeof(residual), size(residual), "dxN_001"),
+        similar(residual),
+    )
+    dxN_cache03 = get!(
+        c.entries, (typeof(residual), size(residual), "dxN_002"),
+        similar(residual),
+    )
+    dxN_cache04 = get!(
+        c.entries, (typeof(residual), size(residual), "dxN_003"),
+        similar(residual),
+    )
+    NxN_cache01 = get!(
+        c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N),
+    )
+    NxN_cache02 = get!(
+        c.entries, (Matrix{T}, (N, N), "NxN_001"), Matrix{T}(undef, N, N),
+    )
+    # <<<
 
-        # R⁻¹ (D - HX)
-        mul!(dxN_cache02, R_inverse, residual)
+    # R⁻¹ (D - HX)
+    mul!(dxN_cache02, R_inverse, residual)
 
-        # (HA)' R⁻¹(D - HX)
-        mul!(NxN_cache01, HA', dxN_cache02)
+    # (HA)' R⁻¹(D - HX)
+    mul!(NxN_cache01, HA', dxN_cache02)
 
-        # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
-        #  -> R⁻¹(HA) / (N-1)
-        rdiv!(mul!(dxN_cache03, R_inverse, HA), Nsub1)
-        #  -> (HA)'R⁻¹(HA) / (N-1)
-        mul!(NxN_cache02, HA', dxN_cache03) # That's Q without the added Identity matrix
-        #  -> I_N + (HA)'R⁻¹(HA) / (N-1)
-        @inbounds @simd for i in 1:N
-            NxN_cache02[i, i] += 1.0
-        end # So that's Q now
+    # Q := I_N + (HA)'(R⁻¹/ (N-1)) (HA)
+    #  -> R⁻¹(HA) / (N-1)
+    rdiv!(mul!(dxN_cache03, R_inverse, HA), Nsub1)
+    #  -> (HA)'R⁻¹(HA) / (N-1)
+    mul!(NxN_cache02, HA', dxN_cache03) # That's Q without the added Identity matrix
+    #  -> I_N + (HA)'R⁻¹(HA) / (N-1)
+    @inbounds @simd for i in 1:N
+        NxN_cache02[i, i] += 1.0
+    end # So that's Q now
 
-        # Q⁻¹ (HA)' R⁻¹(D - HX)   /GETS OVERWRITTEN\   /GETS OVERWRITTEN\
-        #                        |by cholesky!| | by ldiv!  |
-        ldiv!(cholesky!(Symmetric(NxN_cache02)), NxN_cache01)
+    # Q⁻¹ (HA)' R⁻¹(D - HX)   /GETS OVERWRITTEN\   /GETS OVERWRITTEN\
+    #                        |by cholesky!| | by ldiv!  |
+    ldiv!(cholesky!(Symmetric(NxN_cache02)), NxN_cache01)
 
-        # K := (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
-        rdiv!(mul!(dxN_cache02, HA, NxN_cache01), Nsub1)
+    # K := (1/N-1) * (HA) Q⁻¹ (HA)' R⁻¹(D - HX)
+    rdiv!(mul!(dxN_cache02, HA, NxN_cache01), Nsub1)
 
-        # (D - HX) - K
-        # copy!(dxN_cache01, residual)
-        residual .-= dxN_cache02
+    # (D - HX) - K
+    # copy!(dxN_cache01, residual)
+    residual .-= dxN_cache02
 
-        # R⁻¹((D - HX) - K) = P⁻¹(D - HX)
-        mul!(dxN_cache04, R_inverse, residual)
+    # R⁻¹((D - HX) - K) = P⁻¹(D - HX)
+    mul!(dxN_cache04, R_inverse, residual)
 
-        # (HA)' R⁻¹((D - HX) - K)
-        mul!(NxN_cache02, HA', dxN_cache04)
+    # (HA)' R⁻¹((D - HX) - K)
+    mul!(NxN_cache02, HA', dxN_cache04)
 
-        # Xᵃ = Xᶠ + A / (N-1) (HA)' R⁻¹((D - HX) - K)
-        copy!(ensemble, forecast_ensemble)
-        mul!(ensemble, rdiv!(A, Nsub1), NxN_cache02, 1.0, 1.0)
-        return ensemble
-    else
-        # ALLOCATE / QUERY CACHES >>>
-        P = get!(c.entries, (Matrix{T}, (d, d), "P"), Matrix{T}(undef, d, d))
-        P_inv_times_res =
-            get!(c.entries, (Matrix{T}, (d, N), "Pinv_times_res"), Matrix{T}(undef, d, N))
-        NxN_cache = get!(c.entries, (Matrix{T}, (N, N), "NxN_000"), Matrix{T}(undef, N, N))
-        # <<<
-        ldiv!(Nsub1, mul!(P, HA, HA'))
-        P .+= measurement_noise_dist.Σ
-        ldiv!(P_inv_times_res, cholesky!(Symmetric(P)), residual)
-        mul!(NxN_cache, HA', P_inv_times_res)
-        copy!(ensemble, forecast_ensemble)
-        mul!(ensemble, ldiv!(Nsub1, A), NxN_cache, 1.0, 1.0)
-        return ensemble
-    end
+    # Xᵃ = Xᶠ + A / (N-1) (HA)' R⁻¹((D - HX) - K)
+    copy!(ensemble, forecast_ensemble)
+    mul!(ensemble, rdiv!(A, Nsub1), NxN_cache02, 1.0, 1.0)
+    return ensemble
 end
 
 export enkf_predict!
 export enkf_correct!
 export enkf_matrixfree_correct!
+
+function etkf_correct(
+    forecast_ensemble::AbstractMatrix{tT},
+    H::AbstractMatrix{tT},
+    measurement_noise_dist::MvNormal,
+    y::AbstractVector{tT},
+    v::Union{AbstractVector{tT},Missing} = missing;
+    λ::tT = 1.0,
+) where {tT}
+    N = size(forecast_ensemble, 2)
+    R_chol = cholesky(measurement_noise_dist.Σ)
+    H̃ = R_chol.L \ H
+
+    HX = H̃ * forecast_ensemble
+    if !ismissing(v)
+        HX .+= R_chol.L \ v
+    end
+
+    HX_mean = ensemble_mean(HX)
+    HX = HX .- HX_mean
+    Zy = (1.0 / sqrt(N - 1)) * HX
+    C, G, F_T = svd(Zy', full = true, alg = LinearAlgebra.QRIteration())
+    G[G.<eps(tT)] .= eps(tT)
+    if length(G) < N
+        G = vcat(G, zeros(N - length(G)))
+    end
+    G = Diagonal(1.0 ./ sqrt.(1.0 .+ G .^ 2))
+    T = C * G
+
+    forecast_mean = ensemble_mean(forecast_ensemble)
+    Z_f = forecast_ensemble .- forecast_mean
+    Z_a = (1.0 / sqrt(N - 1)) * Z_f * T
+
+    K = Z_a * T' * Zy'
+
+    whitened_residual = (R_chol.L \ y - HX_mean)
+    analysis_mean = forecast_mean .+ K * whitened_residual
+    analysis_ensemble = analysis_mean .+ sqrt(λ) * sqrt(N - 1) * Z_a
+
+    return analysis_ensemble
+end
+
+export etkf_correct
+
+function denkf_correct(
+    forecast_ensemble::AbstractMatrix{T},
+    H::AbstractMatrix{T},
+    measurement_noise_dist::MvNormal,
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing;
+    λ::T = 1.0,
+) where {T}
+    # Sakov and Oke, 2008. "A deterministic formulation of the ensemble Kalman filter...".
+    # (i) Given the forecast ensemble Xf , calculate the ensemble mean,
+    # or forecast xf by (4), and the ensemble anomalies Af by (5).
+    forecast_mean = ensemble_mean(forecast_ensemble)
+    Z_f = centered_ensemble(forecast_ensemble)
+    # (ii) Calculate the analysis xa by using the Kalman analysis eq. (1).
+    HX = H * forecast_ensemble
+    # ---| Along the way: (iii) Calculate the analysed anomalies (for later)
+    HZ_f = H * Z_f
+    if !ismissing(v)
+        HX .+= v
+        HZ_f .+= v
+    end
+    HX_mean = ensemble_mean(HX)
+    residual = y - HX_mean
+    PH, HPH = _calc_PH_HPH(forecast_ensemble, H)
+    Ŝ = HPH + measurement_noise_dist.Σ
+    K̂ = PH / cholesky!(Symmetric(Ŝ))
+    analysis_mean = forecast_mean + K̂ * residual
+    Z_a = Z_f - 0.5 * K̂ * HZ_f
+    # (iv) Calculate the analysed ensemble by offsetting the ana- lysed anomalies by the analysis:
+    analysis_ensemble = analysis_mean .+ sqrt(λ) .* Z_a
+    return analysis_ensemble
+end
+
+export denkf_correct
+
+function serial_etkf_correct(
+    forecast_ensemble::AbstractMatrix{T},
+    H::AbstractMatrix{T},
+    measurement_noise_dist::MvNormal,
+    y::AbstractVector{T},
+    v::Union{AbstractVector{T},Missing} = missing;
+    λ::T = 1.0,
+) where {T}
+    N = size(forecast_ensemble, 2)
+    if !isdiag(measurement_noise_dist.Σ)
+        error("Measurement cov must be diagonal for serial updates.")
+    end
+
+    forecast_mean = ensemble_mean(forecast_ensemble)
+    Z_f = forecast_ensemble .- forecast_mean
+    analysis_mean = similar(forecast_mean)
+    Z_a = similar(Z_f)
+
+    @inbounds @simd for o in axes(H, 1)
+        Rₒ = measurement_noise_dist.Σ[o, o] # []
+        Hₒ = H[o:o, :]                   # [1, D]
+        scalar_obs = Hₒ * forecast_mean  # [1, ]
+        if !ismissing(v)
+            scalar_obs += v[o:o]         # [1, ]
+        end
+        scalar_residual = y[o:o] - scalar_obs   # [1, ]
+
+        Vₒ = (Hₒ * Z_f)'                #  [1, N]' = [N, 1]
+        Dₒ = (Vₒ'*Vₒ)[1] + (N - 1) * Rₒ               # []
+        βₒ = 1.0 / (1.0 + sqrt((N - 1) * Rₒ / Dₒ))  # []
+        K̃ₒ = Z_f * Vₒ / Dₒ            # [D, 1]
+        analysis_mean = forecast_mean + K̃ₒ * scalar_residual
+        Z_a = Z_f - βₒ * K̃ₒ * Vₒ'
+
+        forecast_mean = analysis_mean
+        Z_f = Z_a
+    end
+
+    analysis_ensemble = analysis_mean .+ sqrt(λ) .* Z_a
+
+    return analysis_ensemble
+end
+
+export serial_etkf_correct
