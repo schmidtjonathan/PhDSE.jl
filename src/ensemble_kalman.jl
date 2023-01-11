@@ -189,7 +189,8 @@ function enkf_correct(
     H::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{T},
-    v::Union{AbstractVector{T},Missing} = missing,
+    v::Union{AbstractVector{T},Missing} = missing;
+    λ::T = 1.0
 ) where {T}
     N = size(forecast_ensemble, 2)
     HX = H * forecast_ensemble
@@ -203,6 +204,8 @@ function enkf_correct(
     Ŝ = HPH + measurement_noise_dist.Σ
     K̂ = PH / cholesky!(Symmetric(Ŝ))
     ensemble = forecast_ensemble + K̂ * residual
+    mn = ensemble_mean(ensemble)
+    ensemble = mn .+ sqrt(λ) * (ensemble .- mn)
     return ensemble
 end
 
@@ -540,7 +543,7 @@ function etkf_correct(
     H::AbstractMatrix{tT},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{tT},
-    v::Union{AbstractVector{tT},Missing} = missing,
+    v::Union{AbstractVector{tT},Missing} = missing;
     λ::tT = 1.0,
 ) where {tT}
     N = size(forecast_ensemble, 2)
@@ -565,13 +568,13 @@ function etkf_correct(
 
     forecast_mean = ensemble_mean(forecast_ensemble)
     Z_f = forecast_ensemble .- forecast_mean
-    Z_a = (λ / sqrt(N - 1)) * Z_f * T
+    Z_a = (1.0 / sqrt(N - 1)) * Z_f * T
 
     K = Z_a * T' * Zy'
 
     whitened_residual = (R_chol.L \ y - HX_mean)
     analysis_mean = forecast_mean .+ K * whitened_residual
-    analysis_ensemble = analysis_mean .+ sqrt(N - 1) * Z_a
+    analysis_ensemble = analysis_mean .+ sqrt(λ) * sqrt(N - 1) * Z_a
 
     return analysis_ensemble
 end
@@ -583,7 +586,8 @@ function denkf_correct(
     H::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{T},
-    v::Union{AbstractVector{T},Missing} = missing,
+    v::Union{AbstractVector{T},Missing} = missing;
+    λ::T = 1.0,
 ) where {T}
     # Sakov and Oke, 2008. "A deterministic formulation of the ensemble Kalman filter...".
     # (i) Given the forecast ensemble Xf , calculate the ensemble mean,
@@ -606,7 +610,7 @@ function denkf_correct(
     analysis_mean = forecast_mean + K̂ * residual
     Z_a = Z_f - 0.5 * K̂ * HZ_f
     # (iv) Calculate the analysed ensemble by offsetting the ana- lysed anomalies by the analysis:
-    analysis_ensemble = analysis_mean .+ Z_a
+    analysis_ensemble = analysis_mean .+ sqrt(λ) .* Z_a
     return analysis_ensemble
 end
 
@@ -617,7 +621,8 @@ function serial_etkf_correct(
     H::AbstractMatrix{T},
     measurement_noise_dist::MvNormal,
     y::AbstractVector{T},
-    v::Union{AbstractVector{T},Missing} = missing,
+    v::Union{AbstractVector{T},Missing} = missing;
+    λ::T = 1.0,
 ) where {T}
     N = size(forecast_ensemble, 2)
     if !isdiag(measurement_noise_dist.Σ)
@@ -649,7 +654,7 @@ function serial_etkf_correct(
         Z_f = Z_a
     end
 
-    analysis_ensemble = analysis_mean .+ Z_a
+    analysis_ensemble = analysis_mean .+ sqrt(λ) .* Z_a
 
     return analysis_ensemble
 end
